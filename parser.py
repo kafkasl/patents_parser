@@ -8,6 +8,22 @@ import urllib2, re, sys, signal, os
 
 patent = "<patent-assignment><assignment-record><reel-no>15946</reel-no><frame-no>343</frame-no><last-update-date><date>20130117</date></last-update-date><purge-indicator>N</purge-indicator><recorded-date><date>20050425</date></recorded-date><page-count>9</page-count><correspondent><name>GEORGE R. SCHULTZ</name><address-1>5400 LBJ FREEWAY</address-1><address-2>SUITE 1200</address-2><address-3>DALLAS, TX 75240</address-3></correspondent><conveyance-text>ASSIGNMENT OF ASSIGNORS INTEREST (SEE DOCUMENT FOR DETAILS).</conveyance-text></assignment-record><patent-assignors><patent-assignor><name>EASTWOOD, IAN M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>DORLAND, ERWIN</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>AL-JAFARI, MOHAMMED SALEM</name><execution-date><date>20050412</date></execution-date></patent-assignor><patent-assignor><name>GOODALL, DAVID M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>BERGSTROM, EDMUND T</name><execution-date><date>20050425</date></execution-date></patent-assignor></patent-assignors><patent-assignees><patent-assignee><name>AUTHENTIX, INC.</name><address-1>4355 EXCEL PARKWAY</address-1><address-2>SUITE 100</address-2><city>ADDISON</city><state>TEXAS</state><postcode>75001</postcode></patent-assignee></patent-assignees><patent-properties><patent-property><document-id><country>US</country><doc-number>10852336</doc-number><kind>X0</kind><date>20040524</date></document-id><document-id><country>US</country><doc-number>20050260764</doc-number><kind>A1</kind><date>20051124</date></document-id><document-id><country>US</country><doc-number>7919325</doc-number><kind>B2</kind><date>20110405</date></document-id><invention-title lang='en'>METHOD AND APPARATUS FOR MONITORING LIQUID FOR THE PRESENCE OF AN ADDITIVE</invention-title></patent-property></patent-properties></patent-assignment>"
 
+def is_string(a):
+    return type(a) == str or type(a) == NavigableString
+
+def is_numeric(a):
+    try:
+        int(a)
+    except:
+        return False
+    return True
+
+def is_valid(date_text):
+    try:
+        datetime.datetime.strptime(date_text, '%Y%m%d')
+    except ValueError:
+        return False
+    return True
 
 class Patent(object):
     """docstring for Patent"""
@@ -115,7 +131,6 @@ class Patent(object):
         valid = True
         return valid
 
-
     # def check_action_key_code(self):
     #     errors = []
     #     if self.action_key_code not in self.action_key_codes:
@@ -123,11 +138,15 @@ class Patent(object):
     #             {"action_key_code": "Invalid action key code: [%s]" % self.action_key_code})
     #     return errors
 
-    def pprint(self):
-        lines_to_print = max()
-        print self.get_dtd_version() + ",",
-        print self.get_date_produced() + ",",
-        print self.get_date_produced() + ",",
+    def lines_to_print(self):
+        seen = 0
+
+        for index, prop in enumerate(self.patent_properties):
+            seen += len(prop["document-ids"])
+
+        size = max(len(self.patent_assignees), len(self.patent_assignors), seen)
+        print "Lengths: %s, %s, %s" % (len(self.patent_assignees), len(self.patent_assignors), seen)
+        return size
 
     def print_csv_titles(self):
         for i, title in enumerate(Patent.CSV_TITLES):
@@ -135,6 +154,10 @@ class Patent(object):
                 print ",",
             print title,
         print
+
+    def print_csv(self):
+        for i in xrange(0, self.lines_to_print()):
+            self.print_csv_line(i)
 
     def print_csv_line(self, i):
         for (x, attr) in enumerate(Patent.CSV_FIELDS):
@@ -145,11 +168,14 @@ class Patent(object):
                 if type(res) == NavigableString:
                     res = str(res)
                 if type(res) == str:
-                    res = res.replace(",", " ").replace("."," ")
+                    res = res.replace(",", " ").replace(".", " ")
+                if not res:
+                    res = " "
                 print res,
             except:
                 pass
         print
+
     def get_dtd_version(self, i):
         return self.dtd_version
 
@@ -245,7 +271,7 @@ class Patent(object):
         # print self.patent_properties
 
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["document-ids"][i-seen]["country"]
@@ -253,7 +279,7 @@ class Patent(object):
     def get_doc_number(self, i):
         seen = 0
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["document-ids"][i-seen]["doc-number"]
@@ -261,7 +287,7 @@ class Patent(object):
     def get_kind(self, i):
         seen = 0
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["document-ids"][i-seen]["kind"]
@@ -269,7 +295,7 @@ class Patent(object):
     def get_date9(self, i):
         seen = 0
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["document-ids"][i-seen]["date"]
@@ -277,7 +303,7 @@ class Patent(object):
     def get_invention_title(self, i):
         seen = 0
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["invention-title"]
@@ -285,10 +311,163 @@ class Patent(object):
     def get_lang(self, i):
         seen = 0
         for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen -1):
+            if i > (len(prop["document-ids"]) + seen - 1):
                 seen += len(prop["document-ids"])
             else:
                 return prop["lang"]
+
+
+    # def check_dtd_version(self):
+
+    # def check_date_produced(self):
+
+    # def check_action_key_code(self):
+
+    # def check_date(self):
+
+    def check_reel_no(self):
+        reel_no = self.get_reel_no()
+        if not reel_no:
+            self.errors.append({"reel-no": "empty field"})
+        if not is_numeric(reel_no):
+            self.errors.append({"reel-no": "NaN value"})
+        if reel_no < 0 or reel_no > 999999:
+            self.errors.append({"reel-no": "too long / short"})
+
+    def check_frame_no(self):
+        frame_no = self.get_frame_no()
+        if not frame_no():
+            self.errors.append({"frame_no": "empty field"})
+        if not is_numeric(frame_no):
+            self.errors.append({"frame-no": "NaN value"})
+        if frame_no < 0 or frame_no > 9999:
+            self.errors.append({"frame-no": "too long / short"})
+
+    def check_date2(self):
+        if not self.get_date2():
+            self.errors.append({"date2": "empty field"})
+        if not is_valid(self.get_date2()):
+            self.errors.append({"date2": "invalid date %s" % self.get_date2()})
+
+    def check_purge_indicator(self):
+        if not self.get_purge_indicator():
+            self.errors.append({"purge-indicator": "empty field"})
+        pi = self.get_purge_indicator()
+        if pi != "Y" and pi != "N":
+            self.errors.append[{"purge-indicator": "incorrect value [%s]" % pi}]
+
+    def check_date3(self):
+        if not self.get_date3():
+            self.errors.append({"date3": "empty field"})
+        if not is_valid(self.get_date3()):
+            self.errors.append({"date3": "invalid date %s" % self.get_date3()})
+
+    def check_page_count(self):
+        if not self.get_page_count():
+            self.errors.append({"page-count": "empty field"})
+        if not is_numeric(self.get_page_count()):
+            self.errors.append({"page-count": "NaN value"})
+
+    def check_name(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_address_1(self):
+        if not self.get_address_1():
+            self.errors.append({"address1": "empty field"})
+
+    # def check_address_2(self):
+    #     if not self.get_name():
+    #         self.errors.append({"name": "empty field"})
+
+    # def check_address_3(self):
+    #     if not self.get_name():
+    #         self.errors.append({"name": "empty field"})
+
+    # def check_address_4(self):
+    #     if not self.get_name():
+    #         self.errors.append({"name": "empty field"})
+
+    def check_conveyance_text(self):
+        if not self.get_conveyance_text():
+            self.errors.append({"conveyance-text": "empty field"})
+        if not is_string(self.get_conveyance_text):
+            self.errors.append({"conveyance-text": "not a string"})
+
+    def check_name4(self):
+        if not self.get_name4():
+            self.errors.append({"name4": "empty field"})
+        if not is_string(self.get_name4()):
+            self.errors.append({"name4": "not a string"})
+
+    def check_date5(self):
+        if not self.get_date5():
+            self.errors.append({"date5": "empty field"})
+        if not is_valid(self.get_date5()):
+            self.errors.append({"date5": "invalid date %s" % self.get_date5()})
+
+    def check_name6(self):
+        if not self.get_name6():
+            self.errors.append({"name6": "empty field"})
+        if not is_string(self.get_name6()):
+            self.errors.append({"name6": "not a string"})
+
+    def check_address_17(self):
+        if not self.get_address_17():
+            self.errors.append({"address_17": "empty field"})
+        if not is_string(self.get_address_17()):
+            self.errors.append({"address_17": "not a string"})
+
+    def check_city(self):
+        if not self.get_name4():
+            self.errors.append({"name4": "empty field"})
+        if not is_string(self.get_name4()):
+            self.errors.append({"name4": "not a string"})
+
+    def check_country_name(self):
+        if not self.get_name4():
+            self.errors.append({"name4": "empty field"})
+        if not is_string(self.get_name4()):
+            self.errors.append({"name4": "not a string"})
+
+    def check_postcode(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_state(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_address_28(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_country(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_doc_number(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_kind(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_date9(self):
+        if not self.get_date5():
+            self.errors.append({"date5": "empty field"})
+        if not is_valid(self.get_date5()):
+            self.errors.append({"date5": "invalid date %s" % self.get_date5()})
+
+    def check_invention_title(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
+    def check_lang(self):
+        if not self.get_name():
+            self.errors.append({"name": "empty field"})
+
 
 p = Patent(patent)
 
@@ -299,5 +478,5 @@ d = 20130117
 
 Patent.set_zip_info(dtd, dp, ak, d)
 p.print_csv_titles()
-p.print_csv_line(0)
+p.print_csv()
 # p.print_csv()
