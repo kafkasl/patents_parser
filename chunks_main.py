@@ -12,6 +12,9 @@ import shutil
 # @task()
 def process_zip(data):
     print "Processing zip..."
+    total = 0.0
+    process = 0.0
+    printing = 0.0
 
     usp = "<patent-assignments"
     usp_c = "</patent-assignments>"
@@ -58,52 +61,44 @@ def process_zip(data):
     t4 = time()
     for i in xrange(1, len(patents)-1):
         elem = patents[i]
+        t_x_1 = time()
         p = Patent(elem)
+        t_x_2 = time()
+        print "Init %s" % (t_x_2-t_x_1)
+        process += (t_x_2 - t_x_1)
         p.set_file(results)
         if first:
             p.print_csv_titles()
             first = False
         if p.is_valid():
+            tv1 = time()
             p.print_csv()
-            print "[%s] Valid line" % i
+            tv2 = time()
+            print "Printing %s" % (tv2-tv1)
+            printing += (tv2-tv1)
         else:
             print p.errors
             print >> errors, "[%s] %s %s" % (i, elem, p.errors)
         t5 = time()
-        print "Processing time: %s" % (t5-t4)
+        print "Total time: %s\n\n" % (t5-t4)
+        total += (t5-t4)
         t4 = t5
 
     if first:
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
+    print "Processing %s\nPrinting %s\nTotal %s" % (process, printing, total)
+
 
 if __name__ == "__main__":
 
-    path = "results"
+    path = "trials"
     if os.path.exists(path):
         shutil.rmtree(path)
     os.makedirs(path)
     pfm = PatentsFileManager().get_patent_generator()
 
-    for zip_data in pfm:
-        process_zip(zip_data)
-    # pool = Pool(processes=4)
-    # result = []         # start 4 worker processes
-    # # pool.map(process_zip, [pfm.next()])
-    # for data in pfm:
-    #     result.append(pool.apply_async(process_zip, [data]) )   # evaluate "f(10)"
-
-    # for r in result:
-    #     result.get()
-    # p = Pool(4)
-    # p.map(process_zip, pfm)
-        # p = multiprocessing.Process(target=worker, args=(i,))
-        # jobs.append(p)
-        # p.start()
-
-
-    # results = open('results.csv', "w+")
-    # errors = open('errors.txt', "w+")
-
-    # data = pfm.next()
+    # for zip_data in pfm:
+    zip_data = pfm.next()
+    process_zip(zip_data)

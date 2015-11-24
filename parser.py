@@ -1,24 +1,37 @@
 # -*- coding: utf8 -*-
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
-from collections import OrderedDict
-import urllib2, re, sys, signal, os
+import datetime
+from time import time
 
 
 
 patent = "<patent-assignment><assignment-record><reel-no>15946</reel-no><frame-no>343</frame-no><last-update-date><date>20130117</date></last-update-date><purge-indicator>N</purge-indicator><recorded-date><date>20050425</date></recorded-date><page-count>9</page-count><correspondent><name>GEORGE R. SCHULTZ</name><address-1>5400 LBJ FREEWAY</address-1><address-2>SUITE 1200</address-2><address-3>DALLAS, TX 75240</address-3></correspondent><conveyance-text>ASSIGNMENT OF ASSIGNORS INTEREST (SEE DOCUMENT FOR DETAILS).</conveyance-text></assignment-record><patent-assignors><patent-assignor><name>EASTWOOD, IAN M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>DORLAND, ERWIN</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>AL-JAFARI, MOHAMMED SALEM</name><execution-date><date>20050412</date></execution-date></patent-assignor><patent-assignor><name>GOODALL, DAVID M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>BERGSTROM, EDMUND T</name><execution-date><date>20050425</date></execution-date></patent-assignor></patent-assignors><patent-assignees><patent-assignee><name>AUTHENTIX, INC.</name><address-1>4355 EXCEL PARKWAY</address-1><address-2>SUITE 100</address-2><city>ADDISON</city><state>TEXAS</state><postcode>75001</postcode></patent-assignee></patent-assignees><patent-properties><patent-property><document-id><country>US</country><doc-number>10852336</doc-number><kind>X0</kind><date>20040524</date></document-id><document-id><country>US</country><doc-number>20050260764</doc-number><kind>A1</kind><date>20051124</date></document-id><document-id><country>US</country><doc-number>7919325</doc-number><kind>B2</kind><date>20110405</date></document-id><invention-title lang='en'>METHOD AND APPARATUS FOR MONITORING LIQUID FOR THE PRESENCE OF AN ADDITIVE</invention-title></patent-property></patent-properties></patent-assignment>"
 
+
 def is_string(a):
+    try:
+        a = str(a)
+    except:
+        return False
     return type(a) == str or type(a) == NavigableString
 
+
 def is_numeric(a):
+    float_t = True
+    int_t = True
     try:
         int(a)
     except:
-        return False
-    return True
+        int_t = False
+    try:
+        float(a)
+    except:
+        float_t = False
+    return float_t or int_t
 
 def is_valid(date_text):
+    date_text = str(date_text)
     try:
         datetime.datetime.strptime(date_text, '%Y%m%d')
     except ValueError:
@@ -42,7 +55,7 @@ class Patent(object):
      "address_17", "city", "country_name", "postcode", "state", "address_28",
      "country", "doc_number",  "kind", "date9", "invention_title", "lang"]
 
-    action_key_codes = ["DA”, “WK”, “BI”, “AN"]
+    action_key_codes = ["DA", "WK", "BI", "AN"]
 
     dtd_version = None
 
@@ -78,7 +91,10 @@ class Patent(object):
         self.patent_properties = []
         for prop in patent_properties.contents:
             p_props = self.read_attrs(prop)
-            p_props["lang"] = prop("invention-title")[0]["lang"]
+            try:
+                p_props["lang"] = prop("invention-title")[0]["lang"]
+            except:
+                pass
             ids = []
             for doc in prop.find_all("document-id"):
                 ids.append(self.read_attrs(doc))
@@ -86,12 +102,31 @@ class Patent(object):
             p_props["document-ids"] = ids
             self.patent_properties.append(p_props)
 
+        self.errors = []
+
+    def set_file(self, filetowrite):
+        self.file = filetowrite
+
     @classmethod
     def set_zip_info(cls, dtd, dp, ak, d):
         cls.dtd_version = dtd
         cls.date_produced = dp
         cls.action_key_code = ak
         cls.transaction_date = d
+
+    @classmethod
+    def print_zip_info(cls, r_file):
+        print >> r_file, cls.dtd_version + ",",
+        print >> r_file, cls.date_produced + ",",
+        print >> r_file, cls.action_key_code + ",",
+        print >> r_file, cls.transaction_date + ",",
+        print >> r_file, "N"
+
+    @classmethod
+    def print_empty_titles(cls, r_file):
+        for i in xrange(0,4):
+            print >> r_file, Patent.CSV_TITLES[i] + ",",
+        print >> r_file, "data-available-code"
 
     def read_attrs(self, node):
         attrs = {}
@@ -102,41 +137,26 @@ class Patent(object):
             attrs[attr.name] = attr.string
         return attrs
 
-    def check_integrity(self):
+    def is_valid(self):
+        t1 = time()
         valid = True
-        for key, value in Patent.__dict__.items():
-            if not key.startswith("__"):
-                errors = getattr(self, "check_" + key)()
-                if errors:
-                    self.errors.extend(errors)
-
+        i = 0
+        for field in Patent.CSV_FIELDS:
+            try:
+                getattr(self, "check_" + field)()
+                i += 1
+            except Exception, e:
+                pass
+        if i == len(Patent.CSV_FIELDS):
+            print "All checks done in...",
         if self.errors:
             valid = False
 
+        print "%s" % (time()-t1),
         return valid
 
-    def check_assignment_record(self):
-        valid = True
-        return valid
-
-    def check_patent_assignors(self):
-        valid = True
-        return valid
-
-    def check_patent_assignees(self):
-        valid = True
-        return valid
-
-    def check_patent_properties(self):
-        valid = True
-        return valid
-
-    # def check_action_key_code(self):
-    #     errors = []
-    #     if self.action_key_code not in self.action_key_codes:
-    #         errors.append(
-    #             {"action_key_code": "Invalid action key code: [%s]" % self.action_key_code})
-    #     return errors
+    def get_errors(self):
+        return self.errors
 
     def lines_to_print(self):
         seen = 0
@@ -145,36 +165,41 @@ class Patent(object):
             seen += len(prop["document-ids"])
 
         size = max(len(self.patent_assignees), len(self.patent_assignors), seen)
-        print "Lengths: %s, %s, %s" % (len(self.patent_assignees), len(self.patent_assignors), seen)
+        # print "Lengths: %s, %s, %s" % (len(self.patent_assignees), len(self.patent_assignors), seen)
         return size
 
     def print_csv_titles(self):
+        titles = ""
         for i, title in enumerate(Patent.CSV_TITLES):
             if i > 0:
-                print ",",
-            print title,
-        print
+                titles += ","
+            titles += title
+        print titles
 
     def print_csv(self):
+        lines = ""
         for i in xrange(0, self.lines_to_print()):
-            self.print_csv_line(i)
+            lines += self.print_csv_line(i)
+        print lines
 
     def print_csv_line(self, i):
+        line = ""
         for (x, attr) in enumerate(Patent.CSV_FIELDS):
             try:
                 if x > 0:
-                    print ",",
+                    line += ","
                 res = getattr(self, "get_" + attr)(i)
                 if type(res) == NavigableString:
                     res = str(res)
                 if type(res) == str:
-                    res = res.replace(",", " ").replace(".", " ")
+                    res = res.replace(",", " ")
                 if not res:
                     res = " "
-                print res,
+                line += res
             except:
                 pass
-        print
+        line += "\n"
+        print >> self.file, buffer
 
     def get_dtd_version(self, i):
         return self.dtd_version
@@ -316,167 +341,198 @@ class Patent(object):
             else:
                 return prop["lang"]
 
+    def check_dtd_version(self):
+        dtd = self.get_dtd_version(0)
+        if not dtd:
+            self.errors.append({"dtd-version": "empty field"})
+        dtd = float(dtd)
+        if not is_numeric(dtd):
+            self.errors.append({"dtd-version": "NaN value [%s]" % self.get_dtd_version(0)})
+        if not dtd == 0.3:
+            self.errors.append({"dtd-version": "version is not 0.3"})
 
-    # def check_dtd_version(self):
+    def check_date_produced(self):
+        if not self.get_date_produced(0):
+            self.errors.append({"date-produced": "empty field"})
+        if not is_valid(self.get_date_produced(0)):
+            self.errors.append({"date-produced": "invalid date %s" % self.get_date_produced(0)})
 
-    # def check_date_produced(self):
+    def check_action_key_code(self):
+        if self.get_action_key_code(0) not in self.action_key_codes:
+            self.errors.append(
+                {"action_key_code": "Invalid action key code: [%s]" % self.get_action_key_code(0)})
 
-    # def check_action_key_code(self):
-
-    # def check_date(self):
+    def check_date(self):
+        if not self.get_date(0):
+            self.errors.append({"date": "empty field"})
+        if not is_valid(self.get_date(0)):
+            self.errors.append({"date": "invalid date %s" % self.get_date()})
 
     def check_reel_no(self):
-        reel_no = self.get_reel_no()
+        reel_no = int(self.get_reel_no(0))
         if not reel_no:
             self.errors.append({"reel-no": "empty field"})
         if not is_numeric(reel_no):
             self.errors.append({"reel-no": "NaN value"})
         if reel_no < 0 or reel_no > 999999:
-            self.errors.append({"reel-no": "too long / short"})
+            self.errors.append({"reel-no": "too long / short [%s]" % reel_no})
 
     def check_frame_no(self):
-        frame_no = self.get_frame_no()
-        if not frame_no():
+        frame_no = int(self.get_frame_no(0))
+        if not frame_no:
             self.errors.append({"frame_no": "empty field"})
         if not is_numeric(frame_no):
             self.errors.append({"frame-no": "NaN value"})
         if frame_no < 0 or frame_no > 9999:
-            self.errors.append({"frame-no": "too long / short"})
+            self.errors.append({"frame-no": "too long / short [%s]" % frame_no})
 
     def check_date2(self):
-        if not self.get_date2():
+        if not self.get_date2(0):
             self.errors.append({"date2": "empty field"})
-        if not is_valid(self.get_date2()):
-            self.errors.append({"date2": "invalid date %s" % self.get_date2()})
+        if not is_valid(self.get_date2(0)):
+            self.errors.append({"date2": "invalid date %s" % self.get_date2(0)})
 
     def check_purge_indicator(self):
-        if not self.get_purge_indicator():
+        if not self.get_purge_indicator(0):
             self.errors.append({"purge-indicator": "empty field"})
-        pi = self.get_purge_indicator()
+        pi = self.get_purge_indicator(0)
         if pi != "Y" and pi != "N":
             self.errors.append[{"purge-indicator": "incorrect value [%s]" % pi}]
 
     def check_date3(self):
-        if not self.get_date3():
+        if not self.get_date3(0):
             self.errors.append({"date3": "empty field"})
-        if not is_valid(self.get_date3()):
+        if not is_valid(self.get_date3(0)):
             self.errors.append({"date3": "invalid date %s" % self.get_date3()})
 
     def check_page_count(self):
-        if not self.get_page_count():
+        if not self.get_page_count(0):
             self.errors.append({"page-count": "empty field"})
-        if not is_numeric(self.get_page_count()):
+        if not is_numeric(self.get_page_count(0)):
             self.errors.append({"page-count": "NaN value"})
 
     def check_name(self):
-        if not self.get_name():
+        if not self.get_name(0):
             self.errors.append({"name": "empty field"})
 
     def check_address_1(self):
-        if not self.get_address_1():
+        if not self.get_address_1(0):
             self.errors.append({"address1": "empty field"})
 
-    # def check_address_2(self):
+    def check_address_2(self):
+        return
     #     if not self.get_name():
     #         self.errors.append({"name": "empty field"})
 
-    # def check_address_3(self):
+    def check_address_3(self):
+        return
     #     if not self.get_name():
     #         self.errors.append({"name": "empty field"})
 
-    # def check_address_4(self):
+    def check_address_4(self):
+        return
     #     if not self.get_name():
     #         self.errors.append({"name": "empty field"})
 
     def check_conveyance_text(self):
-        if not self.get_conveyance_text():
+        if not self.get_conveyance_text(0):
             self.errors.append({"conveyance-text": "empty field"})
-        if not is_string(self.get_conveyance_text):
+        if not is_string(self.get_conveyance_text(0)):
             self.errors.append({"conveyance-text": "not a string"})
 
     def check_name4(self):
-        if not self.get_name4():
+        if not self.get_name4(0):
             self.errors.append({"name4": "empty field"})
-        if not is_string(self.get_name4()):
+        if not is_string(self.get_name4(0)):
             self.errors.append({"name4": "not a string"})
 
     def check_date5(self):
-        if not self.get_date5():
+        if not self.get_date5(0):
             self.errors.append({"date5": "empty field"})
-        if not is_valid(self.get_date5()):
+        if not is_valid(self.get_date5(0)):
             self.errors.append({"date5": "invalid date %s" % self.get_date5()})
 
     def check_name6(self):
-        if not self.get_name6():
+        if not self.get_name6(0):
             self.errors.append({"name6": "empty field"})
-        if not is_string(self.get_name6()):
+        if not is_string(self.get_name6(0)):
             self.errors.append({"name6": "not a string"})
 
     def check_address_17(self):
-        if not self.get_address_17():
+        if not self.get_address_17(0):
             self.errors.append({"address_17": "empty field"})
-        if not is_string(self.get_address_17()):
+        if not is_string(self.get_address_17(0)):
             self.errors.append({"address_17": "not a string"})
 
     def check_city(self):
-        if not self.get_name4():
-            self.errors.append({"name4": "empty field"})
-        if not is_string(self.get_name4()):
-            self.errors.append({"name4": "not a string"})
+        if not self.get_city(0):
+            self.errors.append({"city": "empty field"})
+        if not is_string(self.get_city(0)):
+            self.errors.append({"city": "not a string"})
 
     def check_country_name(self):
-        if not self.get_name4():
-            self.errors.append({"name4": "empty field"})
-        if not is_string(self.get_name4()):
-            self.errors.append({"name4": "not a string"})
+        if not self.get_state(0) and not self.get_country_name(0):
+            self.errors.append({"country": "empty field and no state present"})
+        if not is_string(self.get_country_name(0)):
+            self.errors.append({"country-name": "not a string"})
 
     def check_postcode(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_postcode(0):
+            self.errors.append({"postcode": "empty field"})
 
     def check_state(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_state(0) and not self.get_country_name(0):
+            self.errors.append({"state": "empty field and no country name present"})
 
     def check_address_28(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_name(0):
+            self.errors.append({"address28": "empty field"})
 
     def check_country(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_country(0):
+            self.errors.append({"country": "empty field"})
 
     def check_doc_number(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_doc_number(0):
+            self.errors.append({"doc-number": "empty field"})
 
     def check_kind(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        kind = self.get_kind(0)
+        if not kind:
+            self.errors.append({"kind": "empty field"})
+        if not (is_string(kind[0]) and is_numeric(kind[1])):
+            self.errors.append({"kind": "no valid code [%s]" % kind})
 
     def check_date9(self):
-        if not self.get_date5():
+        if not self.get_date5(0):
             self.errors.append({"date5": "empty field"})
-        if not is_valid(self.get_date5()):
+        if not is_valid(self.get_date5(0)):
             self.errors.append({"date5": "invalid date %s" % self.get_date5()})
 
     def check_invention_title(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_invention_title(0):
+            self.errors.append({"invention-title": "empty field"})
 
     def check_lang(self):
-        if not self.get_name():
-            self.errors.append({"name": "empty field"})
+        if not self.get_lang(0):
+            self.errors.append({"lang": "empty field"})
 
+# trial = open("trial.csv", "w+")
+# patent = open("patent.txt").read()
+# p = Patent(patent)
+# p.set_file(trial)
 
-p = Patent(patent)
+# dtd = 0.3
+# dp = 20031112
+# ak = "AN"
+# d = 20130117
 
-dtd = 0.3
-dp = 20031112
-ak = "AN"
-d = 20130117
+# Patent.set_zip_info(dtd, dp, ak, d)
+# if p.is_valid():
+#     print "valid"
+#     p.print_csv_titles()
+#     p.print_csv()
+# else:
+#     print p.errors
 
-Patent.set_zip_info(dtd, dp, ak, d)
-p.print_csv_titles()
-p.print_csv()
 # p.print_csv()
