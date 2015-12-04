@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+from __future__ import print_function
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
 import datetime
@@ -6,7 +7,7 @@ from time import time
 
 
 
-patent = "<patent-assignment><assignment-record><reel-no>15946</reel-no><frame-no>343</frame-no><last-update-date><date>20130117</date></last-update-date><purge-indicator>N</purge-indicator><recorded-date><date>20050425</date></recorded-date><page-count>9</page-count><correspondent><name>GEORGE R. SCHULTZ</name><address-1>5400 LBJ FREEWAY</address-1><address-2>SUITE 1200</address-2><address-3>DALLAS, TX 75240</address-3></correspondent><conveyance-text>ASSIGNMENT OF ASSIGNORS INTEREST (SEE DOCUMENT FOR DETAILS).</conveyance-text></assignment-record><patent-assignors><patent-assignor><name>EASTWOOD, IAN M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>DORLAND, ERWIN</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>AL-JAFARI, MOHAMMED SALEM</name><execution-date><date>20050412</date></execution-date></patent-assignor><patent-assignor><name>GOODALL, DAVID M</name><execution-date><date>20050425</date></execution-date></patent-assignor><patent-assignor><name>BERGSTROM, EDMUND T</name><execution-date><date>20050425</date></execution-date></patent-assignor></patent-assignors><patent-assignees><patent-assignee><name>AUTHENTIX, INC.</name><address-1>4355 EXCEL PARKWAY</address-1><address-2>SUITE 100</address-2><city>ADDISON</city><state>TEXAS</state><postcode>75001</postcode></patent-assignee></patent-assignees><patent-properties><patent-property><document-id><country>US</country><doc-number>10852336</doc-number><kind>X0</kind><date>20040524</date></document-id><document-id><country>US</country><doc-number>20050260764</doc-number><kind>A1</kind><date>20051124</date></document-id><document-id><country>US</country><doc-number>7919325</doc-number><kind>B2</kind><date>20110405</date></document-id><invention-title lang='en'>METHOD AND APPARATUS FOR MONITORING LIQUID FOR THE PRESENCE OF AN ADDITIVE</invention-title></patent-property></patent-properties></patent-assignment>"
+patent = "<patent-assignment><assignment-record><reel-no>29862</reel-no><frame-no>645</frame-no><last-update-date><date>20130225</date></last-update-date><purge-indicator>N</purge-indicator><recorded-date><date>20130222</date></recorded-date><page-count>3</page-count><correspondent><name>KNOBBE, MARTENS, OLSON &amp; BEAR, LLP</name><address-1>2040 MAIN STREET, 14TH FLOOR</address-1><address-2>IRVINE, CA 92614</address-2></correspondent><conveyance-text>CORRECTIVE ASSIGNMENT TO CORRECT THE CONVEYING PARTY'S LAST NAME AND RECEIVING PARTY'S STREET NAME PREVIOUSLY RECORDED ON REEL/FRAME 028805/0592.</conveyance-text></assignment-record><patent-assignors><patent-assignor><name>D&#220;RR, MATTHIAS</name><execution-date><date>20120808</date></execution-date></patent-assignor></patent-assignors><patent-assignees><patent-assignee><name>FERAG AG</name><address-1>Z&#220;RICHSTRASSE 74</address-1><city>HINWIL</city><country-name>SWITZERLAND</country-name><postcode>8340</postcode></patent-assignee></patent-assignees><patent-properties><patent-property><document-id><country>US</country><doc-number>13514911</doc-number><kind>X0</kind><date>20120817</date></document-id><document-id><country>US</country><doc-number>20120310402</doc-number><kind>A1</kind><date>20121206</date></document-id><invention-title lang='en'>CONTROL APPARATUS AND METHOD FOR CONTROLLING A PRINTED-PRODUCT PROCESSING SYSTEM</invention-title></patent-property></patent-properties></patent-assignment>"
 
 
 def is_string(a):
@@ -103,6 +104,7 @@ class Patent(object):
             self.patent_properties.append(p_props)
 
         self.errors = []
+        self.warnings = []
 
     def set_file(self, filetowrite):
         self.file = filetowrite
@@ -116,17 +118,14 @@ class Patent(object):
 
     @classmethod
     def print_zip_info(cls, r_file):
-        print >> r_file, cls.dtd_version + ",",
-        print >> r_file, cls.date_produced + ",",
-        print >> r_file, cls.action_key_code + ",",
-        print >> r_file, cls.transaction_date + ",",
-        print >> r_file, "N"
+        print(cls.dtd_version + "," + cls.date_produced + "," +
+              cls.action_key_code + "," + cls.transaction_date + "," + "N", file=r_file)
 
     @classmethod
     def print_empty_titles(cls, r_file):
-        for i in xrange(0,4):
-            print >> r_file, Patent.CSV_TITLES[i] + ",",
-        print >> r_file, "data-available-code"
+        for i in xrange(0, 4):
+            print(Patent.CSV_TITLES[i] + ",", file=r_file, end="")
+        print("data-available-code", file=r_file)
 
     def read_attrs(self, node):
         attrs = {}
@@ -138,22 +137,28 @@ class Patent(object):
         return attrs
 
     def is_valid(self):
-        t1 = time()
         valid = True
         i = 0
         for field in Patent.CSV_FIELDS:
             try:
-                getattr(self, "check_" + field)()
                 i += 1
+                getattr(self, "check_" + field)()
             except Exception, e:
+                print("exception [%s, %s]\n" % (field, str(e)))
                 pass
-        if i == len(Patent.CSV_FIELDS):
-            print "All checks done in...",
-        if self.errors:
+        if (not i == len(Patent.CSV_FIELDS)) or self.errors:
+            print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
             valid = False
 
-        print "%s" % (time()-t1),
         return valid
+
+    def has_warnings(self):
+        if self.warnings:
+            return True
+        return False
+
+    def get_warnings(self):
+        return self.warnings
 
     def get_errors(self):
         return self.errors
@@ -174,13 +179,13 @@ class Patent(object):
             if i > 0:
                 titles += ","
             titles += title
-        print titles
+        self.file.write(titles+"\n")
 
     def print_csv(self):
         lines = ""
         for i in xrange(0, self.lines_to_print()):
             lines += self.print_csv_line(i)
-        print lines
+        self.file.write(lines)
 
     def print_csv_line(self, i):
         line = ""
@@ -199,7 +204,7 @@ class Patent(object):
             except:
                 pass
         line += "\n"
-        print >> self.file, buffer
+        return line
 
     def get_dtd_version(self, i):
         return self.dtd_version
@@ -247,11 +252,11 @@ class Patent(object):
         return self.assignment_record["correspondent"]["address-4"]
 
     def get_conveyance_text(self, i):
-        return self.assignment_record["conveyance-text"]
+        return str(self.assignment_record["conveyance-text"])
 
     def get_name4(self, i):
         if i < len(self.patent_assignors):
-            return self.patent_assignors[i]["name"]
+            return str(self.patent_assignors[i]["name"])
 
     def get_date5(self, i):
         if i < len(self.patent_assignors):
@@ -259,20 +264,20 @@ class Patent(object):
 
     def get_name6(self, i):
         if i < len(self.patent_assignees):
-            return self.patent_assignees[i]["name"]
+            return str(self.patent_assignees[i]["name"])
 
     def get_address_17(self, i):
         if i < len(self.patent_assignees):
-            return self.patent_assignees[i]["address-1"]
+            return str(self.patent_assignees[i]["address-1"])
 
     def get_city(self, i):
         if i < len(self.patent_assignees):
-            return self.patent_assignees[i]["city"]
+            return str(self.patent_assignees[i]["city"])
 
     def get_country_name(self, i):
         if i < len(self.patent_assignees):
             try:
-                return self.patent_assignees[i]["country-name"]
+                return str(self.patent_assignees[i]["country-name"])
             except:
                 return ""
 
@@ -283,7 +288,7 @@ class Patent(object):
     def get_state(self, i):
         if i < len(self.patent_assignees):
             try:
-                return self.patent_assignees[i]["state"]
+                return str(self.patent_assignees[i]["state"])
             except:
                 return ""
 
@@ -342,197 +347,291 @@ class Patent(object):
                 return prop["lang"]
 
     def check_dtd_version(self):
-        dtd = self.get_dtd_version(0)
-        if not dtd:
-            self.errors.append({"dtd-version": "empty field"})
-        dtd = float(dtd)
-        if not is_numeric(dtd):
-            self.errors.append({"dtd-version": "NaN value [%s]" % self.get_dtd_version(0)})
-        if not dtd == 0.3:
-            self.errors.append({"dtd-version": "version is not 0.3"})
+        try:
+            dtd = self.get_dtd_version(0)
+            if not dtd:
+                self.warnings.append({"dtd-version": "empty field"})
+            dtd = float(dtd)
+            if not is_numeric(dtd):
+                self.errors.append({"dtd-version": "NaN value [%s]" % self.get_dtd_version(0)})
+            if not dtd == 0.3:
+                self.errors.append({"dtd-version": "version is not 0.3"})
+        except:
+            self.warnings.append({"dtd-version": "not found"})
 
     def check_date_produced(self):
-        if not self.get_date_produced(0):
-            self.errors.append({"date-produced": "empty field"})
-        if not is_valid(self.get_date_produced(0)):
-            self.errors.append({"date-produced": "invalid date %s" % self.get_date_produced(0)})
+        try:
+            if not self.get_date_produced(0):
+                self.warnings.append({"date-produced": "empty field"})
+            if not is_valid(self.get_date_produced(0)):
+                self.errors.append({"date-produced": "invalid date %s" % self.get_date_produced(0)})
+        except:
+            self.warnings.append({"date-produced": "not found"})
 
     def check_action_key_code(self):
-        if self.get_action_key_code(0) not in self.action_key_codes:
-            self.errors.append(
-                {"action_key_code": "Invalid action key code: [%s]" % self.get_action_key_code(0)})
+        try:
+            if self.get_action_key_code(0) not in self.action_key_codes:
+                self.errors.append(
+                    {"action_key_code": "Invalid action key code: [%s]" % self.get_action_key_code(0)})
+        except:
+            self.warnings.append({"action_key_code": "not found"})
 
     def check_date(self):
-        if not self.get_date(0):
-            self.errors.append({"date": "empty field"})
-        if not is_valid(self.get_date(0)):
-            self.errors.append({"date": "invalid date %s" % self.get_date()})
+        try:
+            if not self.get_date(0):
+                self.warnings.append({"date": "empty field"})
+            if not is_valid(self.get_date(0)):
+                self.errors.append({"date": "invalid date %s" % self.get_date()})
+        except:
+            self.warnings.append({"date": "not found"})
 
     def check_reel_no(self):
-        reel_no = int(self.get_reel_no(0))
-        if not reel_no:
-            self.errors.append({"reel-no": "empty field"})
-        if not is_numeric(reel_no):
-            self.errors.append({"reel-no": "NaN value"})
-        if reel_no < 0 or reel_no > 999999:
-            self.errors.append({"reel-no": "too long / short [%s]" % reel_no})
+        try:
+            reel_no = int(self.get_reel_no(0))
+            if not reel_no:
+                self.warnings.append({"reel-no": "empty field"})
+            if not is_numeric(reel_no):
+                self.errors.append({"reel-no": "NaN value"})
+            if reel_no < 0 or reel_no > 999999:
+                self.errors.append({"reel-no": "too long / short [%s]" % reel_no})
+        except:
+            self.warnings.append({"reel-no": "not found"})
 
     def check_frame_no(self):
-        frame_no = int(self.get_frame_no(0))
-        if not frame_no:
-            self.errors.append({"frame_no": "empty field"})
-        if not is_numeric(frame_no):
-            self.errors.append({"frame-no": "NaN value"})
-        if frame_no < 0 or frame_no > 9999:
-            self.errors.append({"frame-no": "too long / short [%s]" % frame_no})
+        try:
+            frame_no = int(self.get_frame_no(0))
+            if not frame_no:
+                self.warnings.append({"frame_no": "empty field"})
+            if not is_numeric(frame_no):
+                self.errors.append({"frame-no": "NaN value"})
+            if frame_no < 0 or frame_no > 9999:
+                self.errors.append({"frame-no": "too long / short [%s]" % frame_no})
+        except:
+            self.warnings.append({"frame-no": "not found"})
 
     def check_date2(self):
-        if not self.get_date2(0):
-            self.errors.append({"date2": "empty field"})
-        if not is_valid(self.get_date2(0)):
-            self.errors.append({"date2": "invalid date %s" % self.get_date2(0)})
+        try:
+            if not self.get_date2(0):
+                self.warnings.append({"date2": "empty field"})
+            if not is_valid(self.get_date2(0)):
+                self.errors.append({"date2": "invalid date %s" % self.get_date2(0)})
+        except:
+            self.warnings.append({"date2": "not found"})
 
     def check_purge_indicator(self):
-        if not self.get_purge_indicator(0):
-            self.errors.append({"purge-indicator": "empty field"})
-        pi = self.get_purge_indicator(0)
-        if pi != "Y" and pi != "N":
-            self.errors.append[{"purge-indicator": "incorrect value [%s]" % pi}]
+        try:
+            if not self.get_purge_indicator(0):
+                self.warnings.append({"purge-indicator": "empty field"})
+            pi = self.get_purge_indicator(0)
+            if pi != "Y" and pi != "N":
+                self.errors.append[{"purge-indicator": "incorrect value [%s]" % pi}]
+        except:
+            self.warnings.append({"purge-indicator": "not found"})
 
     def check_date3(self):
-        if not self.get_date3(0):
-            self.errors.append({"date3": "empty field"})
-        if not is_valid(self.get_date3(0)):
-            self.errors.append({"date3": "invalid date %s" % self.get_date3()})
+        try:
+            if not self.get_date3(0):
+                self.warnings.append({"date3": "empty field"})
+            if not is_valid(self.get_date3(0)):
+                self.errors.append({"date3": "invalid date %s" % self.get_date3()})
+        except:
+            self.warnings.append({"date3": "not found"})
 
     def check_page_count(self):
-        if not self.get_page_count(0):
-            self.errors.append({"page-count": "empty field"})
-        if not is_numeric(self.get_page_count(0)):
-            self.errors.append({"page-count": "NaN value"})
+        try:
+            if not self.get_page_count(0):
+                self.warnings.append({"page-count": "empty field"})
+            if not is_numeric(self.get_page_count(0)):
+                self.errors.append({"page-count": "NaN value"})
+        except:
+            self.warnings.append({"page-count": "not found"})
 
     def check_name(self):
-        if not self.get_name(0):
-            self.errors.append({"name": "empty field"})
+        try:
+            if not self.get_name(0):
+                self.warnings.append({"name": "empty field"})
+        except:
+            self.warnings.append({"name": "not found"})
 
     def check_address_1(self):
-        if not self.get_address_1(0):
-            self.errors.append({"address1": "empty field"})
+        try:
+            if not self.get_address_1(0):
+                self.warnings.append({"address1": "empty field"})
+        except:
+            self.warnings.append({"address1": "not found"})
 
     def check_address_2(self):
         return
     #     if not self.get_name():
-    #         self.errors.append({"name": "empty field"})
+    #    warningself.errors.append({"name": "empty field"})
 
     def check_address_3(self):
         return
     #     if not self.get_name():
-    #         self.errors.append({"name": "empty field"})
+    #    warningself.errors.append({"name": "empty field"})
 
     def check_address_4(self):
         return
     #     if not self.get_name():
-    #         self.errors.append({"name": "empty field"})
+    #    warningself.errors.append({"name": "empty field"})
 
     def check_conveyance_text(self):
-        if not self.get_conveyance_text(0):
-            self.errors.append({"conveyance-text": "empty field"})
-        if not is_string(self.get_conveyance_text(0)):
-            self.errors.append({"conveyance-text": "not a string"})
+        try:
+            if not self.get_conveyance_text(0):
+                self.warnings.append({"conveyance-text": "empty field"})
+            if not is_string(self.get_conveyance_text(0)):
+                self.errors.append({"conveyance-text": "not a string [%s]" % type(self.get_conveyance_text(0))})
+        except:
+            self.warnings.append({"conveyance-text": "not found"})
 
     def check_name4(self):
-        if not self.get_name4(0):
-            self.errors.append({"name4": "empty field"})
-        if not is_string(self.get_name4(0)):
-            self.errors.append({"name4": "not a string"})
+        try:
+            if not self.get_name4(0):
+                self.warnings.append({"name4": "empty field"})
+            if not is_string(self.get_name4(0)):
+                self.errors.append({"name4": "not a string [%s]" % type(self.get_name4(0))})
+        except:
+            self.warnings.append({"name4": "not found"})
 
     def check_date5(self):
-        if not self.get_date5(0):
-            self.errors.append({"date5": "empty field"})
-        if not is_valid(self.get_date5(0)):
-            self.errors.append({"date5": "invalid date %s" % self.get_date5()})
+        try:
+            if not self.get_date5(0):
+                self.warnings.append({"date5": "empty field"})
+            if not is_valid(self.get_date5(0)):
+                self.errors.append({"date5": "invalid date %s" % type(self.get_date5())})
+        except:
+            self.warnings.append({"date5": "not found"})
 
     def check_name6(self):
-        if not self.get_name6(0):
-            self.errors.append({"name6": "empty field"})
-        if not is_string(self.get_name6(0)):
-            self.errors.append({"name6": "not a string"})
+        try:
+            if not self.get_name6(0):
+                self.warnings.append({"name6": "empty field"})
+            if not is_string(self.get_name6(0)):
+                self.errors.append({"name6": "not a string [%s]" % type(self.get_name6(0))})
+        except:
+            self.warnings.append({"name6": "not found"})
 
     def check_address_17(self):
-        if not self.get_address_17(0):
-            self.errors.append({"address_17": "empty field"})
-        if not is_string(self.get_address_17(0)):
-            self.errors.append({"address_17": "not a string"})
+        # print("Checking address 17", end="")
+        try:
+            address = self.get_address_17(0)
+            if not address:
+                self.warnings.append({"address_17": "empty field"})
+            if not is_string(self.get_address_17(0)):
+                self.errors.append({"address_17": "not a string [%s]" % type(address)})
+        except:
+            self.warnings.append({"address_17": "not found"})
+            # import os
+            # warnings = open(os.path.join("trials_chunk", 'address_17.txt'), "w+")
+            # print(self.patent, file=warnings)
+
+        # print("done")
 
     def check_city(self):
-        if not self.get_city(0):
-            self.errors.append({"city": "empty field"})
-        if not is_string(self.get_city(0)):
-            self.errors.append({"city": "not a string"})
+        try:
+            if not self.get_city(0):
+                self.warnings.append({"city": "empty field"})
+            if not is_string(self.get_city(0)):
+                self.errors.append({"city": "not a string [%s]" % type(self.get_city(0))})
+        except:
+            self.warnings({"city": "not found"})
 
     def check_country_name(self):
-        if not self.get_state(0) and not self.get_country_name(0):
-            self.errors.append({"country": "empty field and no state present"})
-        if not is_string(self.get_country_name(0)):
-            self.errors.append({"country-name": "not a string"})
+        try:
+            if not self.get_state(0) and not self.get_country_name(0):
+                self.warnings.append({"country": "empty field and no state present"})
+            if not is_string(self.get_country_name(0)):
+                self.errors.append({"country-name": "not a string [%s]" % type(self.get_state(0))})
+        except:
+            self.warnings.append({"country-name": "not found"})
 
     def check_postcode(self):
-        if not self.get_postcode(0):
-            self.errors.append({"postcode": "empty field"})
+        try:
+            postcode = self.get_postcode(0)
+            if not postcode:
+                self.warnings.append({"postcode": "empty field"})
+        except:
+            self.warnings.append({"postcode": "not found"})
 
     def check_state(self):
-        if not self.get_state(0) and not self.get_country_name(0):
-            self.errors.append({"state": "empty field and no country name present"})
+        try:
+            if not self.get_state(0) and not self.get_country_name(0):
+                self.warnings.append({"state": "empty field and no country name present"})
+            if not is_string(self.get_state(0)):
+                self.errors.append({"state": "not a string [%s]" % type(self.get_state(0))})
+        except:
+            self.warnings.append({"state": "not found"})
 
     def check_address_28(self):
-        if not self.get_name(0):
-            self.errors.append({"address28": "empty field"})
+        try:
+            if not self.get_name(0):
+                self.warnings.append({"address28": "empty field"})
+        except:
+            self.warnings.append({"address28": "not found"})
 
     def check_country(self):
-        if not self.get_country(0):
-            self.errors.append({"country": "empty field"})
+        try:
+            if not self.get_country(0):
+                self.warnings.append({"country": "empty field"})
+        except:
+            self.warnings.append({"country": "not found"})
 
     def check_doc_number(self):
-        if not self.get_doc_number(0):
-            self.errors.append({"doc-number": "empty field"})
+        try:
+            if not self.get_doc_number(0):
+                self.warnings.append({"doc-number": "empty field"})
+        except:
+            self.warnings.append({"doc-number": "not found"})
 
     def check_kind(self):
-        kind = self.get_kind(0)
-        if not kind:
-            self.errors.append({"kind": "empty field"})
-        if not (is_string(kind[0]) and is_numeric(kind[1])):
-            self.errors.append({"kind": "no valid code [%s]" % kind})
+        try:
+            kind = self.get_kind(0)
+            if not kind:
+                self.warnings.append({"kind": "empty field"})
+            if not (is_string(kind[0]) and is_numeric(kind[1])):
+                self.errors.append({"kind": "no valid code [%s]" % kind})
+        except:
+            self.warnings.append({"kind": "not found"})
 
     def check_date9(self):
-        if not self.get_date5(0):
-            self.errors.append({"date5": "empty field"})
-        if not is_valid(self.get_date5(0)):
-            self.errors.append({"date5": "invalid date %s" % self.get_date5()})
+        try:
+            if not self.get_date5(0):
+                self.warnings.append({"date5": "empty field"})
+            if not is_valid(self.get_date5(0)):
+                self.errors.append({"date5": "invalid date %s" % self.get_date5()})
+        except:
+            self.warnings.append({"date5": "not found"})
 
     def check_invention_title(self):
-        if not self.get_invention_title(0):
-            self.errors.append({"invention-title": "empty field"})
+        try:
+            if not self.get_invention_title(0):
+                self.warnings.append({"invention-title": "empty field"})
+        except:
+            self.warnings.append({"invention-title": "not found"})
 
     def check_lang(self):
-        if not self.get_lang(0):
-            self.errors.append({"lang": "empty field"})
+        try:
+            if not self.get_lang(0):
+                self.warnings.append({"lang": "empty field"})
+        except:
+            self.warnings.append({"lang": "not found"})
 
-# trial = open("trial.csv", "w+")
+trial = open("trial.csv", "w+")
 # patent = open("patent.txt").read()
-# p = Patent(patent)
-# p.set_file(trial)
+p = Patent(patent)
+p.set_file(trial)
 
-# dtd = 0.3
-# dp = 20031112
-# ak = "AN"
-# d = 20130117
+dtd = 0.3
+dp = 20031112
+ak = "AN"
+d = 20130117
 
-# Patent.set_zip_info(dtd, dp, ak, d)
-# if p.is_valid():
-#     print "valid"
-#     p.print_csv_titles()
-#     p.print_csv()
-# else:
-#     print p.errors
+Patent.set_zip_info(dtd, dp, ak, d)
+if p.is_valid():
+    print("valid")
+    p.print_csv_titles()
+    p.print_csv()
+else:
+    print(p.errors)
 
-# p.print_csv()
+p.print_csv()

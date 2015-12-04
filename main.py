@@ -1,17 +1,20 @@
 # -*- coding: utf8 -*-
-
+from __future__ import print_function
 from PatentsFileManager import PatentsFileManager
-from parser import Patent
 from bs4 import BeautifulSoup
 from time import time
 import os
-from pycompss.api.task import task
 import shutil
 
+PATH = "../results"
+ERROR_PATH = PATH + "/errors"
+RES_PATH = PATH + "/results"
+WARN_PATH = PATH + "/warnings"
 
-# @task()
+
 def process_zip(data):
-    print "Processing zip..."
+    from parser import Patent
+    print("Processing zip...")
 
     usp = "<patent-assignments"
     usp_c = "</patent-assignments>"
@@ -27,7 +30,7 @@ def process_zip(data):
 
     s = BeautifulSoup(head+tail, "lxml")
     t2 = time()
-    print "Soup is ready...Time: %s" % (t2-t1)
+    print("Soup is ready...Time: %s" % (t2-t1))
 
     patents = data[index_1:index_2+len(usp_c)]
     patents = patents.split("<patent-assignment>")
@@ -39,23 +42,15 @@ def process_zip(data):
     ak = s("action-key-code")[0].string
     d = s("transaction-date")[0].string
 
-    results = open(os.path.join("results", 'ad%s.csv' % d), "w+")
-    errors = open(os.path.join("results", 'errors%s.txt' % d), "w+")
+    results = open(os.path.join(RES_PATH, 'res_%s.csv' % d), "w+")
+    errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % d), "w+")
+    warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % d), "w+")
 
-    t3 = time()
-
-    print "DTD %s, DP %s, AK %s, Dp %s" % (dtd, date_produced, ak, d)
-    print "Time gathering zip info: %s" % (t3 - t2)
-
-    # Patent.set_zip_info(dtd, date_produced, ak, d)
-    # p = Patent(example)
-    # p.set_file(results)
-    # p.print_csv_titles()
-    # p.print_csv()
+    print("DTD %s, DP %s, AK %s, Dp %s" % (dtd, date_produced, ak, d))
 
     Patent.set_zip_info(dtd, date_produced, ak, d)
     first = True
-    t4 = time()
+    counter = 0
     for i in xrange(1, len(patents)-1):
         elem = patents[i]
         p = Patent(elem)
@@ -65,45 +60,40 @@ def process_zip(data):
             first = False
         if p.is_valid():
             p.print_csv()
-            print "[%s] Valid line" % i
+            counter += 1
+            if p.has_warnings():
+                print("%s WARNINGS %s" % (i, p.get_warnings()), file=warnings)
+                print("%s OK %s" % (i, p.get_warnings()))
+            else:
+                print("%s OK" % i)
+
         else:
-            print p.errors
-            print >> errors, "[%s] %s %s" % (i, elem, p.errors)
-        t5 = time()
-        print "Processing time: %s" % (t5-t4)
-        t4 = t5
+            print("%s ERROR %s " % (i, p.errors))
+            print("[%s] %s %s\n" % (i, elem, p.errors), file=errors)
 
     if first:
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
+    print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)-1))
+
 
 if __name__ == "__main__":
 
-    path = "results"
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path)
+    if os.path.exists(PATH):
+        shutil.rmtree(PATH)
+    os.makedirs(PATH)
+    os.makedirs(ERROR_PATH)
+    os.makedirs(WARN_PATH)
+    os.makedirs(RES_PATH)
     pfm = PatentsFileManager().get_patent_generator()
 
     for zip_data in pfm:
         process_zip(zip_data)
-    # pool = Pool(processes=4)
-    # result = []         # start 4 worker processes
-    # # pool.map(process_zip, [pfm.next()])
-    # for data in pfm:
-    #     result.append(pool.apply_async(process_zip, [data]) )   # evaluate "f(10)"
-
-    # for r in result:
-    #     result.get()
-    # p = Pool(4)
-    # p.map(process_zip, pfm)
-        # p = multiprocessing.Process(target=worker, args=(i,))
-        # jobs.append(p)
-        # p.start()
-
-
-    # results = open('results.csv', "w+")
-    # errors = open('errors.txt', "w+")
 
     # data = pfm.next()
+    # data = pfm.next()
+    # data = pfm.next()
+    # data = pfm.next()
+    # data = pfm.next()
+    # process_zip(data)
