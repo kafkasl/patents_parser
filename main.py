@@ -75,7 +75,16 @@ def process_zip(data):
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
+    global zip_results
+    zip_results.write(results.name)
+
+    results.close()
+
+    os.remove(results.name)
+
     print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)-1))
+
+
 
 
 if __name__ == "__main__":
@@ -88,8 +97,14 @@ if __name__ == "__main__":
     os.makedirs(RES_PATH)
     pfm = PatentsFileManager().get_patent_generator()
 
+
+    zip_results = zipfile.ZipFile("%s/tests_results.zip" % path1, "w", zipfile.ZIP_DEFLATED)
+
     for zip_data in pfm:
         process_zip(zip_data)
+
+    zip_results.close()
+
 
     # data = pfm.next()
     # data = pfm.next()

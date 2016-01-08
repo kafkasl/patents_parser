@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 from bs4.element import NavigableString
 import datetime
 from time import time
+import re
 
 
 
@@ -43,22 +44,24 @@ class Patent(object):
     """docstring for Patent"""
 
     CSV_TITLES = ["dtd-version", "date-produced",   "action-key-code",
-     "date",  "reel-no", "frame-no", "date2", "purge-indicator", "date3",
-     "page-count",  "name",    "address-1",   "address-2",   "address-3",
-     "address-4",   "conveyance-text", "name4",   "date5",   "name6",
-     "address-17", "city", "country-name", "postcode", "state", "address-28",
-     "country", "X0 doc-number", "A1 doc-number", "A2 doc-number",
+     "transaction date",  "reel-no", "frame-no", "last update date", "purge-indicator", "recorded date",
+     "page-count",  "name correspondent",    "address-1 correspondent",   "address-2 correspondent",   "address-3 correspondent",
+     "address-4",   "conveyance-text", "name assignor",   "date assignor",   "name assignee",
+     "address assignee", "city assignee", "country-name assignee", "postcode assignee", "state assignee", "address-2 assignee",
+     "X0_country", "A1_country", "A2_country", "B1_country", "B2_country", "P1_country", "P2_country", "P3_country", "P4_country", "S1_country",
+     "X0 doc-number", "A1 doc-number", "A2 doc-number",
      "B1 doc-number", "B2 doc-number", "P1 doc-number", "P2 doc-number",
      "P3 doc-number", "P4 doc-number", "S1 doc-number", "X0 date", "A1 date",
      "A2 date", "B1 date", "B2 date", "P1 date", "P2 date", "P3 date",
-     "P4 date", "S1 date" "invention-title", "lang"]
+     "P4 date", "S1 date", "invention-title", "lang"]
 
     CSV_FIELDS = ["dtd_version", "date_produced",   "action_key_code",
      "date",  "reel_no", "frame_no", "date2", "purge_indicator", "date3",
      "page_count",  "name",    "address_1",   "address_2", "address_3",
      "address_4",   "conveyance_text", "name4",   "date5", "name6",
      "address_17", "city", "country_name", "postcode", "state", "address_28",
-     "country", "X0_number", "A1_number", "A2_number", "B1_number", "B2_number",
+     "X0_country", "A1_country", "A2_country", "B1_country", "B2_country", "P1_country", "P2_country", "P3_country", "P4_country", "S1_country",
+     "X0_number", "A1_number", "A2_number", "B1_number", "B2_number",
      "P1_number", "P2_number", "P3_number", "P4_number", "S1_number", "X0_date",
      "A1_date", "A2_date", "B1_date", "B2_date", "P1_date", "P2_date", "P3_date",
      "P4_date", "S1_date", "invention_title", "lang"]
@@ -79,10 +82,17 @@ class Patent(object):
 
         patent = soup.contents[0].contents[0].contents[0]
 
+        patent.contents = [ p for p in patent.contents if p != ' ']
+
         assignment_record = patent.contents[0]
         patent_assignors = patent.contents[1]
         patent_assignees = patent.contents[2]
         patent_properties = patent.contents[3]
+
+        assignment_record.contents = [ p for p in assignment_record.contents if p != ' ']
+        patent_assignors.contents = [ p for p in patent_assignors.contents if p != ' ']
+        patent_assignees.contents = [ p for p in patent_assignees.contents if p != ' ']
+        patent_properties.contents = [ p for p in patent_properties.contents if p != ' ']
 
         self.assignment_record = self.read_attrs(assignment_record)
         self.assignment_record["correspondent"] = self.read_attrs(
@@ -113,6 +123,8 @@ class Patent(object):
         self.errors = []
         self.warnings = []
 
+        self.print_indices = []
+
     def set_file(self, filetowrite):
         self.file = filetowrite
 
@@ -136,8 +148,13 @@ class Patent(object):
 
     def read_attrs(self, node):
         attrs = {}
-        if len(node.contents) < 1:
-            raise Exception("Node %s has no attributes" % node.name)
+        try:
+            if len(node.contents) < 1:
+                raise Exception("Node %s has no attributes" % node.name)
+        except Exception, e:
+            print("Exception: %s" % e)
+
+        node.contents =  [ p for p in node.contents if p != ' ']
 
         for attr in node.contents:
             attrs[attr.name] = attr.string
@@ -151,7 +168,7 @@ class Patent(object):
                 i += 1
                 getattr(self, "check_" + field)()
             except Exception, e:
-                print("exception [%s, %s]\n" % (field, str(e)))
+                # print("exception [%s, %s]\n" % (field, str(e)))
                 pass
         if (not i == len(Patent.CSV_FIELDS)) or self.errors:
             print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
@@ -171,14 +188,11 @@ class Patent(object):
         return self.errors
 
     def lines_to_print(self):
-        seen = 0
-
         pase = len(self.patent_assignees)
         paso = len(self.patent_assignors)
+        props = len(self.patent_properties)
 
-        size = max(pase * paso, len(self.patent_properties))
-        # print("Lengths: %s, %s, %s" % (len(self.patent_assignees), len(self.patent_assignors), seen))
-        return size
+        return pase * paso * props
 
     def print_csv_titles(self):
         titles = ""
@@ -188,11 +202,39 @@ class Patent(object):
             titles += title
         self.file.write(titles+"\n")
 
+    def get_indices(self, pao_size, pae_size, prop_size, n):
+        pao_indices = [(i/(pae_size*prop_size))%pao_size for i in xrange(0, n)]
+        pae_indices = [(i/prop_size) % pae_size for i in xrange(0, n)]
+        prop_indices = [i % prop_size for i in xrange(0, n)]
+
+        return zip(pao_indices, pae_indices, prop_indices)
+
+
+    def init_printing_indices(self, n):
+        lpao = len(self.patent_assignors)
+        lpae = len(self.patent_assignees)
+        lprops = len(self.patent_properties)
+
+        # if lpao >= lpae and lpae >= lprops:
+        #     aoi, aei, propi = self.get_indices(lprops, lpae, lpao)
+
+        self.print_indices = self.get_indices(lpao, lpae, lprops, n)
+
+
+        print("PRINT INDICES for %s-%s\nSizes: %s %s %s" % (self.get_reel_no(0),
+                                                         self.get_frame_no(0), lpao, lpae, lprops))
+        for i in self.print_indices:
+            print(i)
+
     def print_csv(self):
         lines = ""
-        for i in xrange(0, self.lines_to_print()):
+        lines_to_print = self.lines_to_print()
+        self.init_printing_indices(lines_to_print)
+        for i in xrange(0, lines_to_print):
             lines += self.print_csv_line(i)
         self.file.write(lines)
+        # if len(self.patent_assignors) > 1 and len(self.patent_assignees) > 1 and len(self.patent_assignees) == len(self.patent_assignors):
+        #     print(lines)
 
     def print_csv_line(self, i):
         line = ""
@@ -204,7 +246,8 @@ class Patent(object):
                 if type(res) == NavigableString:
                     res = str(res)
                 if type(res) == str:
-                    res = res.replace(", ", " ")
+                    res = res.replace(",", " ")
+                    res = re.sub('\s+', ' ', res).strip()
                 if not res:
                     res = " "
                 line += res
@@ -261,213 +304,319 @@ class Patent(object):
     def get_conveyance_text(self, i):
         return str(self.assignment_record["conveyance-text"])
 
+    # ASSIGNOR variable
     def get_name4(self, i):
-        if i < len(self.patent_assignors):
-            return str(self.patent_assignors[i/(len(self.patent_assignors))]["name"])
+        if i < self.lines_to_print():
+            index, _, _ = self.print_indices[i]
+            # print("%s / %s = %s \n%s" % (i, len(self.patent_assignors), (i/len(self.patent_assignors)), self.patent_assignors))
+            return str(self.patent_assignors[index]["name"])
+        return ""
 
     def get_date5(self, i):
-        if i < len(self.patent_assignors):
-            return self.patent_assignors[i/(len(self.patent_assignors))]["execution-date"]
+        if i < self.lines_to_print():
+            index, _, _ = self.print_indices[i]
+            return self.patent_assignors[index]["execution-date"]
+        return ""
 
+    # ASSIGNEE variables
     def get_name6(self, i):
-        if i < len(self.patent_assignees):
-            return str(self.patent_assignees[i%len(self.patent_assignees)]["name"])
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+            return str(self.patent_assignees[index]["name"])
+        return ""
 
     def get_address_17(self, i):
-        if i < len(self.patent_assignees):
-            return str(self.patent_assignees[i%len(self.patent_assignees)]["address-1"])
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+            return str(self.patent_assignees[index]["address-1"])
+        return ""
 
     def get_city(self, i):
-        if i < len(self.patent_assignees):
-            return str(self.patent_assignees[i%len(self.patent_assignees)]["city"])
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+            return str(self.patent_assignees[index]["city"])
+        return ""
 
     def get_country_name(self, i):
-        if i < len(self.patent_assignees):
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
             try:
-                return str(self.patent_assignees[i%len(self.patent_assignees)]["country-name"])
+                return str(self.patent_assignees[index]["country-name"])
             except:
-                return ""
+                pass
+        return ""
 
     def get_postcode(self, i):
-        if i < len(self.patent_assignees):
-            return self.patent_assignees[i%len(self.patent_assignees)]["postcode"]
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+            return self.patent_assignees[index]["postcode"]
+        return ""
 
     def get_state(self, i):
-        if i < len(self.patent_assignees):
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+
             try:
-                return str(self.patent_assignees[i%len(self.patent_assignees)]["state"])
+                return str(self.patent_assignees[index]["state"])
             except:
-                return ""
+                pass
+        return ""
 
     def get_address_28(self, i):
-        if i < len(self.patent_assignees):
-            return self.patent_assignees[i%len(self.patent_assignees)]["address-2"]
+        if i < self.lines_to_print():
+            _, index, _ = self.print_indices[i]
+            return self.patent_assignees[index]["address-2"]
+        return ""
 
-    def get_country(self, i):
-        seen = 0
-        # print self.patent_properties
+    def get_X0_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "X0":
+                    return doc["country"]
 
-        for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen - 1):
-                seen += len(prop["document-ids"])
-            else:
-                return prop["document-ids"][i-seen]["country"]
+    def get_A1_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "A1":
+                    return doc["country"]
+
+    def get_A2_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "A2":
+                    return doc["country"]
+
+    def get_B1_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "B1":
+                    return doc["country"]
+
+    def get_B2_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "B2":
+                    return doc["country"]
+
+    def get_P1_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "P1":
+                    return doc["country"]
+
+    def get_P2_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "P2":
+                    return doc["country"]
+
+    def get_P3_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "P3":
+                    return doc["country"]
+
+    def get_P4_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "P4":
+                    return doc["country"]
+
+    def get_S1_country(self, i):
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
+            for doc in prop["document-ids"]:
+                if doc["kind"] == "S1":
+                    return doc["country"]
 
     def get_X0_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "X0":
                     return doc["doc-number"]
 
     def get_A1_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A1":
                     return doc["doc-number"]
 
     def get_A2_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A2":
                     return doc["doc-number"]
 
     def get_B1_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B1":
                     return doc["doc-number"]
 
     def get_B2_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B2":
                     return doc["doc-number"]
 
     def get_P1_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P1":
                     return doc["doc-number"]
 
     def get_P2_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P2":
                     return doc["doc-number"]
 
     def get_P3_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P3":
                     return doc["doc-number"]
 
     def get_P4_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P4":
                     return doc["doc-number"]
 
     def get_S1_number(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "S1":
                     return doc["doc-number"]
 
     def get_X0_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "X0":
                     return doc["date"]
 
     def get_A1_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A1":
                     return doc["date"]
 
     def get_A2_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A2":
                     return doc["date"]
 
     def get_B1_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B1":
                     return doc["date"]
 
     def get_B2_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B2":
                     return doc["date"]
 
     def get_P1_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P1":
                     return doc["date"]
 
     def get_P2_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P2":
                     return doc["date"]
 
     def get_P3_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P3":
                     return doc["date"]
 
     def get_P4_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P4":
                     return doc["date"]
 
     def get_S1_date(self, i):
-        if i < len(self.patent_properties):
-            prop = self.patent_properties[i]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "S1":
                     return doc["date"]
 
     def get_invention_title(self, i):
-        seen = 0
-        for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen - 1):
-                seen += len(prop["document-ids"])
-            else:
-                return prop["invention-title"]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            return self.patent_properties[index]['invention-title']
 
     def get_lang(self, i):
-        seen = 0
-        for index, prop in enumerate(self.patent_properties):
-            if i > (len(prop["document-ids"]) + seen - 1):
-                seen += len(prop["document-ids"])
-            else:
-                return prop["lang"]
+        if i < self.lines_to_print():
+            _, _, index = self.print_indices[i]
+            return self.patent_properties[index]['lang']
 
     def check_dtd_version(self):
         try:
@@ -477,8 +626,8 @@ class Patent(object):
             dtd = float(dtd)
             if not is_numeric(dtd):
                 self.errors.append({"dtd-version": "NaN value [%s]" % self.get_dtd_version(0)})
-            if not dtd == 0.3:
-                self.errors.append({"dtd-version": "version is not 0.3"})
+            if not (dtd == 0.3 or dtd == 1.0):
+                self.warnings.append({"dtd-version": "version is neither 0.3 nor 1.0"})
         except:
             self.warnings.append({"dtd-version": "not found"})
 
@@ -534,9 +683,10 @@ class Patent(object):
 
     def check_date2(self):
         try:
-            if not self.get_date2(0):
+            attr = self.get_date2(0)
+            if attr is None:
                 self.warnings.append({"date2": "empty field"})
-            if not is_valid(self.get_date2(0)):
+            elif not is_valid(self.get_date2(0)):
                 self.errors.append({"date2": "invalid date %s" % self.get_date2(0)})
         except:
             self.warnings.append({"date2": "not found"})
@@ -739,21 +889,20 @@ class Patent(object):
         except:
             self.warnings.append({"lang": "not found"})
 
-trial = open("trial.csv", "w+")
-patent = open("patent.txt").read()
-p = Patent(patent)
-p.set_file(trial)
+# trial = open("trial.csv", "w+")
+# patent = open("patent.txt").read()
+# p = Patent(patent)
+# p.set_file(trial)
 
-dtd = 0.3
-dp = 20031112
-ak = "AN"
-d = 20130117
+# dtd = 0.3
+# dp = 20031112
+# ak = "AN"
+# d = 20130117
 
-Patent.set_zip_info(dtd, dp, ak, d)
-if p.is_valid():
-    print("valid")
-    p.print_csv_titles()
-    p.print_csv()
-else:
-    print(p.errors)
-
+# Patent.set_zip_info(dtd, dp, ak, d)
+# if p.is_valid():
+#     print("valid")
+#     p.print_csv_titles()
+#     p.print_csv()
+# else:
+#     print(p.errors)
