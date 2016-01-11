@@ -46,9 +46,6 @@ def process_zip_line(data):
 
     t3 = time()
 
-    print("DTD %s, DP %s, AK %s, Dp %s" % (dtd, date_produced, ak, d))
-    print("Time gathering zip info: %s" % (t3 - t2))
-
     # Patent.set_zip_info(dtd, date_produced, ak, d)
     # p = Patent(example)
     # p.set_file(results)
@@ -75,7 +72,6 @@ def process_zip_line(data):
             p.print_csv()
             counter += 1
             tv2 = time()
-            print("Printing %s" % (tv2-tv1))
             printing += (tv2-tv1)
         else:
             print(p.errors)

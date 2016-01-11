@@ -221,11 +221,6 @@ class Patent(object):
         self.print_indices = self.get_indices(lpao, lpae, lprops, n)
 
 
-        print("PRINT INDICES for %s-%s\nSizes: %s %s %s" % (self.get_reel_no(0),
-                                                         self.get_frame_no(0), lpao, lpae, lprops))
-        for i in self.print_indices:
-            print(i)
-
     def print_csv(self):
         lines = ""
         lines_to_print = self.lines_to_print()

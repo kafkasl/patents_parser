@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from time import time
 import os
 import shutil
+import zipfile
 
 PATH = "../results"
 ERROR_PATH = PATH + "/errors"
@@ -46,7 +47,6 @@ def process_zip(data):
     errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % d), "w+")
     warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % d), "w+")
 
-    print("DTD %s, DP %s, AK %s, Dp %s" % (dtd, date_produced, ak, d))
 
     Patent.set_zip_info(dtd, date_produced, ak, d)
     first = True
@@ -61,12 +61,6 @@ def process_zip(data):
         if p.is_valid():
             p.print_csv()
             counter += 1
-            if p.has_warnings():
-                print("%s WARNINGS %s" % (i, p.get_warnings()), file=warnings)
-                print("%s OK %s" % (i, p.get_warnings()))
-            else:
-                print("%s OK" % i)
-
         else:
             print("%s ERROR %s " % (i, p.errors))
             print("[%s] %s %s\n" % (i, elem, p.errors), file=errors)
@@ -98,7 +92,7 @@ if __name__ == "__main__":
     pfm = PatentsFileManager().get_patent_generator()
 
 
-    zip_results = zipfile.ZipFile("%s/tests_results.zip" % path1, "w", zipfile.ZIP_DEFLATED)
+    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED)
 
     for zip_data in pfm:
         process_zip(zip_data)
