@@ -92,7 +92,7 @@ if __name__ == "__main__":
     pfm = PatentsFileManager().get_patent_generator()
 
 
-    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED)
+    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED, allowZip64 = True)
 
     for zip_data in pfm:
         process_zip(zip_data)
