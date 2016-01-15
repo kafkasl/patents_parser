@@ -43,6 +43,9 @@ def process_zip(data):
     ak = s("action-key-code")[0].string
     d = s("transaction-date")[0].string
 
+    if not d:
+        d = s("transaction-date")[0]("date")[0].string
+
     results = open(os.path.join(RES_PATH, 'res_%s.csv' % d), "w+")
     errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % d), "w+")
     warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % d), "w+")
@@ -89,7 +92,7 @@ if __name__ == "__main__":
     os.makedirs(ERROR_PATH)
     os.makedirs(WARN_PATH)
     os.makedirs(RES_PATH)
-    pfm = PatentsFileManager().get_patent_generator()
+    pfm = PatentsFileManager("20140216").get_patent_generator()
 
 
     zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED, allowZip64 = True)
@@ -98,11 +101,3 @@ if __name__ == "__main__":
         process_zip(zip_data)
 
     zip_results.close()
-
-
-    # data = pfm.next()
-    # data = pfm.next()
-    # data = pfm.next()
-    # data = pfm.next()
-    # data = pfm.next()
-    # process_zip(data)

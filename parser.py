@@ -82,21 +82,22 @@ class Patent(object):
 
         patent = soup.contents[0].contents[0].contents[0]
 
-        patent.contents = [ p for p in patent.contents if p != ' ']
+        patent.contents = [ p for p in patent.contents if (p != ' ' and p != '\n')]
 
         assignment_record = patent.contents[0]
         patent_assignors = patent.contents[1]
         patent_assignees = patent.contents[2]
         patent_properties = patent.contents[3]
 
-        assignment_record.contents = [ p for p in assignment_record.contents if p != ' ']
-        patent_assignors.contents = [ p for p in patent_assignors.contents if p != ' ']
-        patent_assignees.contents = [ p for p in patent_assignees.contents if p != ' ']
-        patent_properties.contents = [ p for p in patent_properties.contents if p != ' ']
+        assignment_record.contents = [ p for p in assignment_record.contents if (p != ' ' and p != '\n')]
+        patent_assignors.contents = [ p for p in patent_assignors.contents if (p != ' ' and p != '\n')]
+        patent_assignees.contents = [ p for p in patent_assignees.contents if (p != ' ' and p != '\n')]
+        patent_properties.contents = [ p for p in patent_properties.contents if (p != ' ' and p != '\n')]
 
         self.assignment_record = self.read_attrs(assignment_record)
         self.assignment_record["correspondent"] = self.read_attrs(
             assignment_record.find_all("correspondent")[0])
+
 
         self.patent_assignors = []
         for assignor in patent_assignors.contents:
@@ -137,6 +138,11 @@ class Patent(object):
 
     @classmethod
     def print_zip_info(cls, r_file):
+        # print(cls.dtd_version)
+        # print(cls.date_produced)
+        # print(cls.action_key_code)
+        # print(cls.transaction_date)
+
         print(cls.dtd_version + ", " + cls.date_produced + ", " +
               cls.action_key_code + ", " + cls.transaction_date + ", " + "N", file=r_file)
 

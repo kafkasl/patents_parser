@@ -120,13 +120,13 @@ if __name__ == "__main__":
         shutil.rmtree(path1)
     os.makedirs(path1)
 
-    files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20121231-01.xml",
-             "/home/kurtz/xlin/Projects/patents/test_files/ad20130101.xml",
-             "/home/kurtz/xlin/Projects/patents/test_files/ad20140101.xml",
-             "/home/kurtz/xlin/Projects/patents/test_files/ad20140102.xml",
-             "/home/kurtz/xlin/Projects/patents/test_files/ad20150101.xml"]
+    # files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20121231-01.xml",
+    #          "/home/kurtz/xlin/Projects/patents/test_files/ad20130101.xml",
+    #          "/home/kurtz/xlin/Projects/patents/test_files/ad20140101.xml",
+    #          "/home/kurtz/xlin/Projects/patents/test_files/ad20140102.xml",
+    #          "/home/kurtz/xlin/Projects/patents/test_files/ad20150101.xml"]
 
-    # files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20130101.xml"]
+    files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20140215.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140216.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140217.xml"]
 
 
     zip_results = zipfile.ZipFile("%s/tests_results.zip" % path1, "w", zipfile.ZIP_DEFLATED)
