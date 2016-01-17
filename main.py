@@ -58,7 +58,7 @@ def process_zip(data):
         elem = patents[i]
         init = False
         counter = 0
-        while not init:
+        while not init and counter < 10:
             try:
                 p = Patent(elem)
                 init = True
@@ -66,6 +66,9 @@ def process_zip(data):
                 counter += 1
                 print("Exception during patent init... retrying (%s)" % counter)
                 pass
+
+        if not init:
+            print("%s ERROR: could not init Patent object, string data is shown below\n%s" % (i, elem), file=errors)
         p.set_file(results)
         if first:
             p.print_csv_titles()
