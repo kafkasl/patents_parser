@@ -56,7 +56,16 @@ def process_zip(data):
     counter = 0
     for i in xrange(1, len(patents)-1):
         elem = patents[i]
-        p = Patent(elem)
+        init = False
+        counter = 0
+        while not init:
+            try:
+                p = Patent(elem)
+                init = True
+            except Exception, e:
+                counter += 1
+                print("Exception during patent init... retrying (%s)" % counter)
+                pass
         p.set_file(results)
         if first:
             p.print_csv_titles()
@@ -92,7 +101,7 @@ if __name__ == "__main__":
     os.makedirs(ERROR_PATH)
     os.makedirs(WARN_PATH)
     os.makedirs(RES_PATH)
-    pfm = PatentsFileManager("20140216").get_patent_generator()
+    pfm = PatentsFileManager("20140428").get_patent_generator()
 
 
     zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED, allowZip64 = True)
