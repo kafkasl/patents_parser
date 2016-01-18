@@ -9,7 +9,7 @@ import zipfile
 
 PATH = "../results"
 ERROR_PATH = PATH + "/errors"
-RES_PATH = PATH + "/results"
+RES_PATH = PATH
 WARN_PATH = PATH + "/warnings"
 
 
@@ -50,25 +50,27 @@ def process_zip(data):
     errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % d), "w+")
     warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % d), "w+")
 
-
     Patent.set_zip_info(dtd, date_produced, ak, d)
     first = True
     counter = 0
-    for i in xrange(1, len(patents)-1):
+    exc = ""
+    for i in xrange(1, len(patents)):
         elem = patents[i]
         init = False
-        counter = 0
-        while not init and counter < 10:
+        retries = 0
+        while not init and retries < 10:
             try:
                 p = Patent(elem)
                 init = True
             except Exception, e:
-                counter += 1
-                print("Exception during patent init... retrying (%s)" % counter)
+                exc = e
+                retries += 1
+                print("Exception during init... retrying (%s)" % retries)
                 pass
 
         if not init:
-            print("%s ERROR: could not init Patent object, string data is shown below\n%s" % (i, elem), file=errors)
+            print("%s ERROR: could not init Patent object, [[%s]]\nString"
+                  " data is shown below\n%s" % (i, exc, elem), file=errors)
         p.set_file(results)
         if first:
             p.print_csv_titles()
@@ -76,6 +78,8 @@ def process_zip(data):
         if p.is_valid():
             p.print_csv()
             counter += 1
+            if p.has_warnings():
+                print("%s WARNINGS %s" % (i, p.get_warnings()), file=warnings)
         else:
             print("%s ERROR %s " % (i, p.errors))
             print("[%s] %s %s\n" % (i, elem, p.errors), file=errors)
@@ -84,17 +88,8 @@ def process_zip(data):
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
-    global zip_results
-    zip_results.write(results.name)
-
-    results.close()
-
-    os.remove(results.name)
-
     print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)-1))
-
-
-
+    return results.name
 
 if __name__ == "__main__":
 
@@ -103,13 +98,23 @@ if __name__ == "__main__":
     os.makedirs(PATH)
     os.makedirs(ERROR_PATH)
     os.makedirs(WARN_PATH)
-    os.makedirs(RES_PATH)
-    pfm = PatentsFileManager("20140428").get_patent_generator()
+    # os.makedirs(RES_PATH)
+    pfm = PatentsFileManager().get_patent_generator()
 
-
-    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH, "w", zipfile.ZIP_DEFLATED, allowZip64 = True)
+    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH,
+                                  "w", zipfile.ZIP_DEFLATED, allowZip64=True)
 
     for zip_data in pfm:
-        process_zip(zip_data)
+        f = process_zip(zip_data)
+        zip_results.write(f, os.path.basename(f))
+        os.remove(f)
+    # zip_data = pfm.next()
+    # f = process_zip(zip_data)
+    # zip_results.write(f, os.path.basename(f))
+    # os.remove(f)
+
+    # results.append(process_zip(zip_data))
+
+    # for res in results:
 
     zip_results.close()

@@ -102,15 +102,6 @@ def process_zip(data):
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
-    print("Path %s" % results.name)
-    global zip_results
-    zip_results.write(results.name)
-
-    results.close()
-
-    os.remove(results.name)
-
-
     print("Processing %s\nPrinting %s\nTotal %s, count: %s" % (process / counter , printing / counter, total / counter, counter))
 
 if __name__ == "__main__":
@@ -126,8 +117,9 @@ if __name__ == "__main__":
     #          "/home/kurtz/xlin/Projects/patents/test_files/ad20140102.xml",
     #          "/home/kurtz/xlin/Projects/patents/test_files/ad20150101.xml"]
 
-    files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20140215.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140216.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140217.xml"]
+    # files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20140215.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140216.xml","/home/kurtz/xlin/Projects/patents/test_files/ad20140217.xml"]
 
+    files = ["/home/kurtz/xlin/Projects/patents/test_files/ad20150115.xml"]
 
     zip_results = zipfile.ZipFile("%s/tests_results.zip" % path1, "w", zipfile.ZIP_DEFLATED)
     for patent in files:
