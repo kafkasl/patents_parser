@@ -89,7 +89,14 @@ def process_zip(data):
         Patent.print_zip_info(results)
 
     print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)-1))
-    return (counter == (len(patents) - 1))
+    return counter == (len(patents) - 1)
+
+
+def unzip_patent(patent_zip):
+    patent_xml = patent_zip.replace("zip", "xml")
+    zf = zipfile.ZipFile(patent_zip)
+    data = zf.read(patent_xml)
+    return data
 
 if __name__ == "__main__":
 
@@ -101,13 +108,14 @@ if __name__ == "__main__":
     # os.makedirs(RES_PATH)
     pfm = PatentsFileManager().get_patent_generator()
 
-    zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH,
-                                  "w", zipfile.ZIP_DEFLATED, allowZip64=True)
+    # zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH,
+    #                               "w", zipfile.ZIP_DEFLATED, allowZip64=True)
 
-    for zip_data in pfm:
-        f = process_zip(zip_data)
-        zip_results.write(f, os.path.basename(f))
-        os.remove(f)
+    for file in os.listdir("."):
+        zip_data = unzip_patent(file)
+        if process_zip(zip_data):
+            os.remove(file)
+        # zip_results.write(f, os.path.basename(f))
     # zip_data = pfm.next()
     # f = process_zip(zip_data)
     # zip_results.write(f, os.path.basename(f))

@@ -45,7 +45,7 @@ class PatentsFileManager():
                 # Download file
                 urllib.urlretrieve(download_url, old_date_format_str)
                 patents_data = self._unzip_patent(old_date_format_str)
-                os.remove(old_date_format_str)
+                # os.remove(old_date_format_str)
                 yield patents_data
 
         while self.init_date <= self.final_date:
@@ -59,7 +59,7 @@ class PatentsFileManager():
             # Download file
             urllib.urlretrieve(download_url, file_format)
             patents_data = self._unzip_patent(file_format)
-            os.remove(file_format)
+            # os.remove(file_format)
             self.init_date += datetime.timedelta(days=1)
             yield patents_data
 
