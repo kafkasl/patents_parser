@@ -6,6 +6,8 @@ from time import time
 import os
 import shutil
 import zipfile
+import glob
+import multiprocessing
 
 PATH = "../results"
 ERROR_PATH = PATH + "/errors"
@@ -13,19 +15,25 @@ RES_PATH = PATH
 WARN_PATH = PATH + "/warnings"
 
 
-def process_zip(data):
+def process_zip(file):
+
+    data = unzip_patent(file)
+    name = file.replace("zip", "csv")
+
     from parser import Patent
     print("Processing zip...")
 
     usp = "<patent-assignments"
     usp_c = "</patent-assignments>"
-    q = len(data) / 100
-    index_1 = data.find(usp, 0, q)
+    # q = len(data) / 100
+    index_1 = data.find(usp)
     index_2 = data.find(usp_c)
     index_2 += len(usp_c)
 
     head = data[0:index_1]
     tail = data[index_2:len(data)-1]
+
+    print("Head \n%s" % head)
 
     t1 = time()
 
@@ -46,14 +54,15 @@ def process_zip(data):
     if not d:
         d = s("transaction-date")[0]("date")[0].string
 
-    results = open(os.path.join(RES_PATH, 'res_%s.csv' % d), "w+")
-    errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % d), "w+")
-    warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % d), "w+")
+    results = open(os.path.join(RES_PATH, name), "w+")
+    errors = open(os.path.join(ERROR_PATH, 'errors_%s.txt' % name.replace(".csv", "")), "w+")
+    warnings = open(os.path.join(WARN_PATH, 'warnings_%s.txt' % name.replace(".csv", "")), "w+")
 
     Patent.set_zip_info(dtd, date_produced, ak, d)
     first = True
-    counter = 0
+    counter = 1
     exc = ""
+    print("Patents to parse %s" % len(patents))
     for i in xrange(1, len(patents)):
         elem = patents[i]
         init = False
@@ -88,8 +97,10 @@ def process_zip(data):
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
-    print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)-1))
-    return counter == (len(patents) - 1)
+    print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)))
+    if counter == len(patents):
+        # os.remove(file)
+        pass
 
 
 def unzip_patent(patent_zip):
@@ -100,21 +111,28 @@ def unzip_patent(patent_zip):
 
 if __name__ == "__main__":
 
-    if os.path.exists(PATH):
-        shutil.rmtree(PATH)
-    os.makedirs(PATH)
-    os.makedirs(ERROR_PATH)
-    os.makedirs(WARN_PATH)
+    if not os.path.exists(PATH):
+        os.makedirs(PATH)
+        os.makedirs(ERROR_PATH)
+        os.makedirs(WARN_PATH)
     # os.makedirs(RES_PATH)
-    pfm = PatentsFileManager().get_patent_generator()
+    # pfm = PatentsFileManager().get_patent_generator()
 
     # zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH,
     #                               "w", zipfile.ZIP_DEFLATED, allowZip64=True)
+    available_threads = multiprocessing.cpu_count()
+    print("Using %s threads" % available_threads)
 
-    for file in os.listdir("."):
-        zip_data = unzip_patent(file)
-        if process_zip(zip_data):
-            os.remove(file)
+    p = multiprocessing.Pool(available_threads)
+
+    files = glob.glob("*zip")
+    p.map(process_zip, files)
+
+        # print("File %s" % file)
+        # zip_data = unzip_patent(file)
+        # if process_zip(zip_data, file.replace("zip", "csv")):
+        #     # os.remove(file)
+        #     print("ZIP OK")
         # zip_results.write(f, os.path.basename(f))
     # zip_data = pfm.next()
     # f = process_zip(zip_data)
@@ -125,4 +143,4 @@ if __name__ == "__main__":
 
     # for res in results:
 
-    zip_results.close()
+    # zip_results.close()
