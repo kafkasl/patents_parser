@@ -16,6 +16,7 @@ WARN_PATH = PATH + "/warnings"
 
 
 def process_zip(file):
+    t0 = time()
 
     data = unzip_patent(file)
     name = file.replace("zip", "csv")
@@ -33,13 +34,11 @@ def process_zip(file):
     head = data[0:index_1]
     tail = data[index_2:len(data)-1]
 
-    print("Head \n%s" % head)
-
     t1 = time()
 
     s = BeautifulSoup(head+tail, "lxml")
     t2 = time()
-    print("Soup is ready...Time: %s" % (t2-t1))
+    print("Soup Time: %s" % (t2-t1))
 
     patents = data[index_1:index_2+len(usp_c)]
     patents = patents.split("<patent-assignment>")
@@ -62,6 +61,10 @@ def process_zip(file):
     first = True
     counter = 1
     exc = ""
+
+    p_time = 0
+
+    pr_time  = 0
     print("Patents to parse %s" % len(patents))
     for i in xrange(1, len(patents)):
         elem = patents[i]
@@ -69,7 +72,9 @@ def process_zip(file):
         retries = 0
         while not init and retries < 10:
             try:
+                tx1 = time()
                 p = Patent(elem)
+                p_time += (time() - tx1)
                 init = True
             except Exception, e:
                 exc = e
@@ -80,6 +85,7 @@ def process_zip(file):
         if not init:
             print("%s ERROR: could not init Patent object, [[%s]]\nString"
                   " data is shown below\n%s" % (i, exc, elem), file=errors)
+        txp = time()
         p.set_file(results)
         if first:
             p.print_csv_titles()
@@ -92,10 +98,14 @@ def process_zip(file):
         else:
             print("%s ERROR %s " % (i, p.errors))
             print("[%s] %s %s\n" % (i, elem, p.errors), file=errors)
+        pr_time = (time() - txp)
 
     if first:
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
+
+    print("TIMES\nPatent %s\n Print %s" % (p_time, pr_time))
+
 
     print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)))
     if counter == len(patents):
@@ -126,7 +136,10 @@ if __name__ == "__main__":
     p = multiprocessing.Pool(available_threads)
 
     files = glob.glob("*zip")
-    p.map(process_zip, files)
+    # p.map(process_zip, files)
+
+    for file in files:
+        process_zip(file)
 
         # print("File %s" % file)
         # zip_data = unzip_patent(file)
