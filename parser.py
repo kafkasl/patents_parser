@@ -3,8 +3,10 @@ from __future__ import print_function
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString
 import datetime
+import exceptions
 from time import time
 import re
+import sys
 
 
 
@@ -58,8 +60,8 @@ class Patent(object):
     CSV_FIELDS = ["dtd_version", "date_produced",   "action_key_code",
      "date",  "reel_no", "frame_no", "date2", "purge_indicator", "date3",
      "page_count",  "name",    "address_1",   "address_2", "address_3",
-     "address_4",   "conveyance_text", "name4",   "date5", "name6",
-     "address_17", "city", "country_name", "postcode", "state", "address_28",
+     "address_4",   "conveyance_text", "name_assignor",   "date_assignor", "name_assignee",
+     "address_assignee", "city_assignee", "country_name_assignee", "postcode_assignee", "state_assignee", "address_2_assignee",
      "X0_country", "A1_country", "A2_country", "B1_country", "B2_country", "P1_country", "P2_country", "P3_country", "P4_country", "S1_country",
      "X0_number", "A1_number", "A2_number", "B1_number", "B2_number",
      "P1_number", "P2_number", "P3_number", "P4_number", "S1_number", "X0_date",
@@ -167,15 +169,19 @@ class Patent(object):
         return attrs
 
     def is_valid(self):
+        lines_to_print = self.lines_to_print()
+        self.init_printing_indices(lines_to_print)
         valid = True
         i = 0
         for field in Patent.CSV_FIELDS:
             try:
                 i += 1
                 getattr(self, "check_" + field)()
-            except Exception, e:
-                # print("exception [%s, %s]\n" % (field, str(e)))
+            except AttributeError:
                 pass
+            except Exception, e:
+                print("exception [%s, %s]\n" % (field, str(e)))
+                # pass
         if (not i == len(Patent.CSV_FIELDS)) or self.errors:
             print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
             valid = False
@@ -230,7 +236,6 @@ class Patent(object):
     def print_csv(self):
         lines = ""
         lines_to_print = self.lines_to_print()
-        self.init_printing_indices(lines_to_print)
         for i in xrange(0, lines_to_print):
             lines += self.print_csv_line(i)
         self.file.write(lines)
@@ -245,15 +250,24 @@ class Patent(object):
                     line += ", "
                 res = getattr(self, "get_" + attr)(i)
                 if type(res) == NavigableString:
-                    res = str(res)
+                    res = res.encode('utf-8')
                 if type(res) == str:
                     res = res.replace(",", " ")
                     res = re.sub('\s+', ' ', res).strip()
                 if not res:
                     res = " "
                 line += res
-            except:
+            except KeyError, e:
+                # print("KEYERROR: %s" % e)
                 pass
+            except AttributeError, e:
+                # print("ATTERROR: %s" % e)
+                pass
+            except UnicodeEncodeError, e:
+                # print("Type(e) = %s " % type(e))
+                print("Exception %s" % e)
+                sys.exit(-1)
+                # if not type(e) == exceptions.AttributeError:
         line += "\n"
         return line
 
@@ -303,46 +317,53 @@ class Patent(object):
         return self.assignment_record["correspondent"]["address-4"]
 
     def get_conveyance_text(self, i):
-        return str(self.assignment_record["conveyance-text"])
+        return self.assignment_record["conveyance-text"].encode('utf-8')
 
     # ASSIGNOR variable
-    def get_name4(self, i):
+    def get_name_assignor(self, i):
+        # print("Getting assignor name %s from %s" % (i, self.lines_to_print()) )
+        # print("Print indices\n%s" % self.print_indices)
         if i < self.lines_to_print():
             index, _, _ = self.print_indices[i]
+            # try:
+            #     print("Name assignOR [%s]: [%s]" % (i, self.patent_assignors[index]["name"].encode('utf-8')))
+            # except Exception, e:
+            #     print("EXception stringifying %s" % e)
+
             # print("%s / %s = %s \n%s" % (i, len(self.patent_assignors), (i/len(self.patent_assignors)), self.patent_assignors))
-            return str(self.patent_assignors[index]["name"])
+            return self.patent_assignors[index]["name"].encode('utf-8')
         return ""
 
-    def get_date5(self, i):
+    def get_date_assignor(self, i):
         if i < self.lines_to_print():
             index, _, _ = self.print_indices[i]
             return self.patent_assignors[index]["execution-date"]
         return ""
 
     # ASSIGNEE variables
-    def get_name6(self, i):
+    def get_name_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
-            return str(self.patent_assignees[index]["name"])
+            return self.patent_assignees[index]["name"].encode('utf-8')
         return ""
 
-    def get_address_17(self, i):
+    def get_address_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
-            return str(self.patent_assignees[index]["address-1"])
+            return self.patent_assignees[index]["address-1"].encode('utf-8')
         return ""
 
     def get_city(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
-            return str(self.patent_assignees[index]["city"])
+            return self.patent_assignees[index]["city"].encode('utf-8')
         return ""
 
     def get_country_name(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             try:
-                return str(self.patent_assignees[index]["country-name"])
+                return self.patent_assignees[index]["country-name"].encode('utf-8')
             except:
                 pass
         return ""
@@ -358,7 +379,7 @@ class Patent(object):
             _, index, _ = self.print_indices[i]
 
             try:
-                return str(self.patent_assignees[index]["state"])
+                return self.patent_assignees[index]["state"].encode('utf-8')
             except:
                 pass
         return ""
@@ -366,7 +387,7 @@ class Patent(object):
     def get_address_28(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
-            return self.patent_assignees[index]["address-2"]
+            return self.patent_assignees[index]["address-2"].encode('utf-8')
         return ""
 
     def get_X0_country(self, i):
@@ -375,7 +396,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "X0":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_A1_country(self, i):
         if i < self.lines_to_print():
@@ -383,7 +404,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A1":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_A2_country(self, i):
         if i < self.lines_to_print():
@@ -391,7 +412,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "A2":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_B1_country(self, i):
         if i < self.lines_to_print():
@@ -399,7 +420,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B1":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_B2_country(self, i):
         if i < self.lines_to_print():
@@ -407,7 +428,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "B2":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_P1_country(self, i):
         if i < self.lines_to_print():
@@ -415,7 +436,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P1":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_P2_country(self, i):
         if i < self.lines_to_print():
@@ -423,7 +444,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P2":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_P3_country(self, i):
         if i < self.lines_to_print():
@@ -431,7 +452,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P3":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_P4_country(self, i):
         if i < self.lines_to_print():
@@ -439,7 +460,7 @@ class Patent(object):
             prop = self.patent_properties[index]
             for doc in prop["document-ids"]:
                 if doc["kind"] == "P4":
-                    return doc["country"]
+                    return doc["country"].encode('utf-8')
 
     def get_S1_country(self, i):
         if i < self.lines_to_print():
@@ -612,12 +633,12 @@ class Patent(object):
     def get_invention_title(self, i):
         if i < self.lines_to_print():
             _, _, index = self.print_indices[i]
-            return self.patent_properties[index]['invention-title']
+            return self.patent_properties[index]['invention-title'].encode('utf-8')
 
     def get_lang(self, i):
         if i < self.lines_to_print():
             _, _, index = self.print_indices[i]
-            return self.patent_properties[index]['lang']
+            return self.patent_properties[index]['lang'].encode('utf-8')
 
     def check_dtd_version(self):
         try:
@@ -758,45 +779,44 @@ class Patent(object):
         except:
             self.warnings.append({"conveyance-text": "not found"})
 
-    def check_name4(self):
+    def check_name_assignor(self):
         try:
-            if not self.get_name4(0):
-                self.warnings.append({"name4": "empty field"})
-            if not is_string(self.get_name4(0)):
-                self.errors.append({"name4": "not a string [%s]" % type(self.get_name4(0))})
-        except:
-            self.warnings.append({"name4": "not found"})
+            for (i, assignor) in enumerate(self.patent_assignors):
+                if not assignor["name"]:
+                    self.errors.append({"name_assignor %s": "empty [%s]" % (i)})
+        except Exception, e:
+            self.warnings.append({"name_assignor": "%" % e})
 
-    def check_date5(self):
+    def check_date_assignor(self):
+        print("Checking assignor date")
         try:
-            if not self.get_date5(0):
-                self.warnings.append({"date5": "empty field"})
-            if not is_valid(self.get_date5(0)):
-                self.errors.append({"date5": "invalid date %s" % type(self.get_date5())})
+            if not self.get_date_assignor(0):
+                self.warnings.append({"date_assignor": "empty field"})
+            elif not is_valid(self.get_date_assignor(0)):
+                self.errors.append({"date_assignor": "invalid date %s" % type(self.get_date_assignor())})
         except:
-            self.warnings.append({"date5": "not found"})
+            self.warnings.append({"date_assignor": "not found"})
 
-    def check_name6(self):
+    def check_name_assignee(self):
         try:
-            if not self.get_name6(0):
-                self.warnings.append({"name6": "empty field"})
-            if not is_string(self.get_name6(0)):
-                self.errors.append({"name6": "not a string [%s]" % type(self.get_name6(0))})
-        except:
-            self.warnings.append({"name6": "not found"})
+            for (i, assignee) in enumerate(self.patent_assignees):
+                if not assignee["name"]:
+                    self.errors.append({"name_assignee %s": "empty [%s]" % (i)})
+        except Exception, e:
+            self.warnings.append({"name_assignee": "%" % e})
 
-    def check_address_17(self):
+    def check_address_assignee(self):
         # print("Checking address 17", end="")
         try:
-            address = self.get_address_17(0)
+            address = self.get_address_assignee(0)
             if not address:
-                self.warnings.append({"address_17": "empty field"})
-            if not is_string(self.get_address_17(0)):
-                self.errors.append({"address_17": "not a string [%s]" % type(address)})
+                self.warnings.append({"address_assignee": "empty field"})
+            if not is_string(self.get_address_assignee(0)):
+                self.errors.append({"address_assignee": "not a string [%s]" % type(address)})
         except:
-            self.warnings.append({"address_17": "not found"})
+            self.warnings.append({"address_assignee": "not found"})
             # import os
-            # warnings = open(os.path.join("trials_chunk", 'address_17.txt'), "w+")
+            # warnings = open(os.path.join("trials_chunk", 'address_assignee.txt'), "w+")
             # print(self.patent, file=warnings)
 
         # print("done")
@@ -869,12 +889,13 @@ class Patent(object):
 
     def check_date9(self):
         try:
-            if not self.get_date5(0):
-                self.warnings.append({"date5": "empty field"})
-            if not is_valid(self.get_date5(0)):
-                self.errors.append({"date5": "invalid date %s" % self.get_date5()})
-        except:
-            self.warnings.append({"date5": "not found"})
+            if not self.get_date_assignor(0):
+                self.warnings.append({"date_assignor": "empty field"})
+            elif not is_valid(self.get_date_assignor(0)):
+                self.errors.append({"date_assignor": "invalid date %s" % self.get_date_assignor()})
+        except Exception, e:
+            print("esss %s" % e)
+            self.warnings.append({"date_assignor": "not found"})
 
     def check_invention_title(self):
         try:

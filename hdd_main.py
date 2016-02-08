@@ -104,7 +104,7 @@ def process_zip(file):
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
 
-    print("TIMES\nPatent %s\n Print %s" % (p_time, pr_time))
+    print("TIMES:\n\tPatent %s\n\tPrint %s" % (p_time, pr_time))
 
 
     print("Total printed: %s\nTotal patents: %s" % (counter, len(patents)))
@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     p = multiprocessing.Pool(available_threads)
 
-    files = glob.glob("*zip")
+    files = glob.glob("munchen.zip")
     # p.map(process_zip, files)
 
     for file in files:
