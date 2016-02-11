@@ -135,11 +135,11 @@ if __name__ == "__main__":
 
     p = multiprocessing.Pool(available_threads)
 
-    files = glob.glob("munchen.zip")
-    # p.map(process_zip, files)
+    files = glob.glob("*.zip")
+    p.map(process_zip, files)
 
-    for file in files:
-        process_zip(file)
+    #for file in files:
+    #    process_zip(file)
 
         # print("File %s" % file)
         # zip_data = unzip_patent(file)
