@@ -133,13 +133,13 @@ if __name__ == "__main__":
     available_threads = multiprocessing.cpu_count()
     print("Using %s threads" % available_threads)
 
-    p = multiprocessing.Pool(available_threads)
+    with multiprocessing.Pool(available_threads) as p:
 
-    files = glob.glob("munchen.zip")
-    # p.map(process_zip, files)
+        files = glob.glob("*.zip")
+        p.map(process_zip, files)
 
-    for file in files:
-        process_zip(file)
+    # for file in files:
+    #     process_zip(file)
 
         # print("File %s" % file)
         # zip_data = unzip_patent(file)
