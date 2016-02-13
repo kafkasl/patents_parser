@@ -141,6 +141,7 @@ if __name__ == "__main__":
     # for file in files:
     #     process_zip(file)
 
+
         # print("File %s" % file)
         # zip_data = unzip_patent(file)
         # if process_zip(zip_data, file.replace("zip", "csv")):
