@@ -137,10 +137,11 @@ if __name__ == "__main__":
         p = multiprocessing.Pool(available_threads)
         files = glob.glob("*.zip")
         p.map(process_zip, files)
-    except Exception, e:
-        print("-- EXC: %s" % e)
-    finally:
+    except:
+        print("-- EXCEPTION ON POOL. TERMINATING...")
         p.terminate()
+    finally:
+        print("--  DONE")
     # for file in files:
     #     process_zip(file)
 
