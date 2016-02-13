@@ -133,11 +133,14 @@ if __name__ == "__main__":
     available_threads = multiprocessing.cpu_count()
     print("Using %s threads" % available_threads)
 
-    with multiprocessing.Pool(available_threads) as p:
-
+    try:
+        p = multiprocessing.Pool(available_threads)
         files = glob.glob("*.zip")
         p.map(process_zip, files)
-
+    except Exception, e:
+        print("-- EXC: %s" % e)
+    finally:
+        p.terminate()
     # for file in files:
     #     process_zip(file)
 
