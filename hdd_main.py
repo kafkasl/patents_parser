@@ -123,14 +123,17 @@ def unzip_patent(patent_zip):
 
 if __name__ == "__main__":
 
-    if len(sys.argv) > 2:
+    t_first = time()
+
+    if len(sys.argv) > 3:
         PATH = sys.argv[1]
         ERROR_PATH = PATH + "/errors"
         RES_PATH = PATH + "/"
         WARN_PATH = PATH + "/warnings"
         DATA_PATH = sys.argv[2]
+        available_threads = int(sys.argv[3])
     else:
-        print("Usage: hdd_main RESULTS_PATH DATA_PATH")
+        print("Usage: hdd_main RESULTS_PATH DATA_PATH nthreads")
         sys.exit(1)
 
 
@@ -148,18 +151,25 @@ if __name__ == "__main__":
 
     # zip_results = zipfile.ZipFile("%s/tests_results.zip" % PATH,
     #                               "w", zipfile.ZIP_DEFLATED, allowZip64=True)
-    available_threads = multiprocessing.cpu_count()
+    #available_threads = multiprocessing.cpu_count()
     print("Using %s threads" % available_threads)
 
+    p = multiprocessing.Pool(available_threads)
     try:
-        p = multiprocessing.Pool(available_threads)
         files = glob.glob("%s/*.zip" % DATA_PATH)
         p.map(process_zip, files)
-    except:
-        print("-- EXCEPTION ON POOL. TERMINATING...")
+    except Exception, e:
+        print("-- EXCEPTION ON POOL: %s\n. TERMINATING..."% e)
         p.terminate()
-    finally:
+    except:
+        print("-- UND. EXCEPTION ON POOL.\n. TERMINATING...")
+        p.terminate()
+    finally: 
         print("--  DONE")
+
+    p.terminate()
+    t_last = time()
+    print("Elapsed time: %s" % (t_last-t_first))
 
     # for file in files:
     #     process_zip(file)
