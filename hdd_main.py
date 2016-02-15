@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 from __future__ import print_function
-from PatentsFileManager import PatentsFileManager
+#from PatentsFileManager import PatentsFileManager
 from bs4 import BeautifulSoup
 from time import time
 import os
@@ -9,6 +9,7 @@ import shutil
 import zipfile
 import glob
 import multiprocessing
+import traceback
 
 PATH = "."
 ERROR_PATH = PATH + "/errors"
@@ -65,7 +66,8 @@ def process_zip(file):
 
     p_time = 0
 
-    pr_time  = 0
+    pr_time  = 	0
+    p = False
     print("Patents to parse %s" % len(patents))
     for i in xrange(1, len(patents)):
         elem = patents[i]
@@ -80,7 +82,8 @@ def process_zip(file):
             except Exception, e:
                 exc = e
                 retries += 1
-                print("Exception during init... retrying (%s)" % retries)
+                tb = traceback.format_exc()
+                print("Exception during init... retrying (%s)\n - %s" % (retries, tb))
                 pass
 
         if not init:
