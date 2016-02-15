@@ -252,7 +252,7 @@ class Patent(object):
                 if type(res) == NavigableString:
                     res = res.encode('utf-8')
                 if type(res) == str:
-                    res = res.replace(",", " ").replace("\"", " ").replace("\'", " ")
+                    res = res.replace(",", " ").replace("\"", " ").replace("\'", " ").replace(".", " ")
                     res = re.sub('\s+', ' ', res).strip()
                 if not res:
                     res = " "
