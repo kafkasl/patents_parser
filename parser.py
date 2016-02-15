@@ -162,7 +162,7 @@ class Patent(object):
         except Exception, e:
             print("Exception: %s" % e)
 
-        node.contents =  [ p for p in node.contents if p != ' ']
+        node.contents =  [ p for p in node.contents if p != ' ' and p != '\n']
 
         for attr in node.contents:
             attrs[attr.name] = attr.string
