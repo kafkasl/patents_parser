@@ -127,6 +127,9 @@ class Patent(object):
         self.warnings = []
 
         self.print_indices = []
+        self.valid = False
+
+        self.check_fields()
 
     def set_file(self, filetowrite):
         self.file = filetowrite
@@ -169,6 +172,11 @@ class Patent(object):
         return attrs
 
     def is_valid(self):
+        return self.valid
+
+    def check_fields(self):
+        print("Checking Fields")
+        self.remove_empty_assigs()
         lines_to_print = self.lines_to_print()
         self.init_printing_indices(lines_to_print)
         valid = True
@@ -186,7 +194,23 @@ class Patent(object):
             print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
             valid = False
 
-        return valid
+        self.valid = valid
+
+    def remove_empty_assigs(self):
+        for (i, assignor) in enumerate(self.patent_assignors):
+            try:
+                if not assignor["name"]:
+                    self.patent_assignors.remove(assignor)
+                    print("ASSIGNOR REMOVED")
+            except Exception, e:
+                print("Trying to remove but [%s]" % e)
+        for (i, assignee) in enumerate(self.patent_assignees):
+            try:
+                if not assignee["name"]:
+                    self.patent_assignees.remove(assignee)
+                    print("ASSIGNEE REMOVED")
+            except Exception, e:
+                print("Trying to remove but [%s]" % e)
 
     def has_warnings(self):
         if self.warnings:
@@ -229,6 +253,8 @@ class Patent(object):
 
         # if lpao >= lpae and lpae >= lprops:
         #     aoi, aei, propi = self.get_indices(lprops, lpae, lpao)
+
+        print("Assignors = %s\nAssignees = %s\nProperties = %s" % (lpao,lpae,lprops))
 
         self.print_indices = self.get_indices(lpao, lpae, lprops, n)
 
@@ -321,16 +347,10 @@ class Patent(object):
 
     # ASSIGNOR variable
     def get_name_assignor(self, i):
-        # print("Getting assignor name %s from %s" % (i, self.lines_to_print()) )
-        # print("Print indices\n%s" % self.print_indices)
+
         if i < self.lines_to_print():
             index, _, _ = self.print_indices[i]
-            # try:
-            #     print("Name assignOR [%s]: [%s]" % (i, self.patent_assignors[index]["name"].encode('utf-8')))
-            # except Exception, e:
-            #     print("EXception stringifying %s" % e)
 
-            # print("%s / %s = %s \n%s" % (i, len(self.patent_assignors), (i/len(self.patent_assignors)), self.patent_assignors))
             return self.patent_assignors[index]["name"].encode('utf-8')
         return ""
 
@@ -348,18 +368,19 @@ class Patent(object):
         return ""
 
     def get_address_assignee(self, i):
+        print("GEtting adress EE %s %s\n%s\n\n" % (i, self.lines_to_print(), self.patent_assignees))
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             return self.patent_assignees[index]["address-1"].encode('utf-8')
         return ""
 
-    def get_city(self, i):
+    def get_city_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             return self.patent_assignees[index]["city"].encode('utf-8')
         return ""
 
-    def get_country_name(self, i):
+    def get_country_name_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             try:
@@ -368,13 +389,13 @@ class Patent(object):
                 pass
         return ""
 
-    def get_postcode(self, i):
+    def get_postcode_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             return self.patent_assignees[index]["postcode"]
         return ""
 
-    def get_state(self, i):
+    def get_state_assignee(self, i):
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
 
@@ -384,9 +405,11 @@ class Patent(object):
                 pass
         return ""
 
-    def get_address_28(self, i):
+    def get_address_2_assignee(self, i):
+        print("Getting address 28 / 2")
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
+            print("Got %s" % self.patent_assignees[index]["address-2"].encode('utf-8'))
             return self.patent_assignees[index]["address-2"].encode('utf-8')
         return ""
 
@@ -781,86 +804,91 @@ class Patent(object):
 
     def check_name_assignor(self):
         try:
-            for (i, assignor) in enumerate(self.patent_assignors):
-                if not assignor["name"]:
-                    self.errors.append({"name_assignor %s": "empty [%s]" % (i)})
+            if  len(self.patent_assignors) == 0:
+                self.errors.append({"name_assignor": "ALL empty [%s]" % (i)})
         except Exception, e:
-            self.warnings.append({"name_assignor": "%" % e})
+            self.warnings.append({"name_assignor": "%s" % e})
 
     def check_date_assignor(self):
         try:
-            if not self.get_date_assignor(0):
-                self.warnings.append({"date_assignor": "empty field"})
-            elif not is_valid(self.get_date_assignor(0)):
-                self.errors.append({"date_assignor": "invalid date %s" % type(self.get_date_assignor())})
+            for assig in self.patent_assignors:
+                if not assig['execution-date']:
+                    self.warnings.append({"date_assignor": "empty field"})
+                elif not is_valid(self.get_date_assignor(0)):
+                    self.errors.append({"date_assignor": "invalid date %s" % type(self.get_date_assignor())})
         except:
             self.warnings.append({"date_assignor": "not found"})
 
     def check_name_assignee(self):
         try:
-            for (i, assignee) in enumerate(self.patent_assignees):
-                if not assignee["name"]:
-                    self.errors.append({"name_assignee %s": "empty [%s]" % (i)})
+            if  len(self.patent_assignees) == 0:
+                self.errors.append({"name_assignee": "ALL empty [%s]" % (i)})
         except Exception, e:
-            self.warnings.append({"name_assignee": "%" % e})
+            self.warnings.append({"name_assignee": "%s" % e})
 
     def check_address_assignee(self):
-        # print("Checking address 17", end="")
         try:
-            address = self.get_address_assignee(0)
-            if not address:
-                self.warnings.append({"address_assignee": "empty field"})
-            if not is_string(self.get_address_assignee(0)):
-                self.errors.append({"address_assignee": "not a string [%s]" % type(address)})
+            for assig in self.patent_assignees:
+                address = assig['address-1'].encode('utf-8')
+                if not address:
+                    self.warnings.append({"address_assignee": "empty field"})
+                if not is_string(self.get_address_assignee(0)):
+                    self.errors.append({"address_assignee": "not a string [%s]" % type(address)})
         except:
             self.warnings.append({"address_assignee": "not found"})
-            # import os
-            # warnings = open(os.path.join("trials_chunk", 'address_assignee.txt'), "w+")
-            # print(self.patent, file=warnings)
 
-        # print("done")
 
-    def check_city(self):
+    def check_city_assignee(self):
         try:
-            if not self.get_city(0):
-                self.warnings.append({"city": "empty field"})
-            if not is_string(self.get_city(0)):
-                self.errors.append({"city": "not a string [%s]" % type(self.get_city(0))})
+            for assig in self.patent_assignees:
+                city = assig['city'].encode('utf-8')
+                if not city:
+                    self.warnings.append({"city": "empty field"})
+                if not is_string(city):
+                    self.errors.append({"city": "not a string [%s]" % type(city)})
         except:
             self.warnings({"city": "not found"})
 
-    def check_country_name(self):
+    def check_country_name_assignee(self):
         try:
-            if not self.get_state(0) and not self.get_country_name(0):
-                self.warnings.append({"country": "empty field and no state present"})
-            if not is_string(self.get_country_name(0)):
-                self.errors.append({"country-name": "not a string [%s]" % type(self.get_state(0))})
+            for assig in self.patent_assignees:
+                country = assig['country-name'].encode('utf-8')
+                state = assig['state'].encode('utf-8')
+                if not state and not country:
+                    self.warnings.append({"country": "empty field and no state present"})
+                if not is_string(country):
+                    self.errors.append({"country-name": "not a string [%s]" % type(state)})
         except:
             self.warnings.append({"country-name": "not found"})
 
-    def check_postcode(self):
+    def check_postcode_assignee(self):
         try:
-            postcode = self.get_postcode(0)
-            if not postcode:
-                self.warnings.append({"postcode": "empty field"})
+            for assig in self.patent_assignees:
+                postcode = assig['postcode']
+                if not postcode:
+                    self.warnings.append({"postcode": "empty field"})
         except:
             self.warnings.append({"postcode": "not found"})
 
-    def check_state(self):
+    def check_state_assignee(self):
         try:
-            if not self.get_state(0) and not self.get_country_name(0):
-                self.warnings.append({"state": "empty field and no country name present"})
-            if not is_string(self.get_state(0)):
-                self.errors.append({"state": "not a string [%s]" % type(self.get_state(0))})
+            for assig in self.patent_assignees:
+                country = assig['country-name'].encode('utf-8')
+                state = assig['state'].encode('utf-8')
+                if not state and not country:
+                    self.warnings.append({"state": "empty field and no state present"})
+                if not is_string(state):
+                    self.errors.append({"state": "not a string [%s]" % type(state)})
         except:
             self.warnings.append({"state": "not found"})
 
-    def check_address_28(self):
+    def check_address_2_assignee(self):
         try:
-            if not self.get_name(0):
-                self.warnings.append({"address28": "empty field"})
+            for assig in self.patent_assignees:
+                if not assig['address-2'].encode('utf-8'):
+                    self.warnings.append({"address-2-assignee": "empty field"})
         except:
-            self.warnings.append({"address28": "not found"})
+            self.warnings.append({"address-2-assignee": "not found"})
 
     def check_country(self):
         try:

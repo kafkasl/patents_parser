@@ -94,20 +94,20 @@ def process_zip(file):
         if first:
             p.print_csv_titles()
             first = False
-
-            p.print_csv()
-            counter += 1
         if p.is_valid():
+            counter += 1
             if p.has_warnings():
                 print("%s WARNINGS %s" % (i, p.get_warnings()), file=warnings)
         else:
             print("%s ERROR %s " % (i, p.errors))
             print("[%s] %s %s\n" % (i, elem, p.errors), file=errors)
+        p.print_csv()
         pr_time = (time() - txp)
 
     if first:
         Patent.print_empty_titles(results)
         Patent.print_zip_info(results)
+
 
     print("TIMES:\n\tPatent %s\n\tPrint %s" % (p_time, pr_time))
 
@@ -160,13 +160,16 @@ if __name__ == "__main__":
 
     p = multiprocessing.Pool(available_threads)
     try:
-        files = glob.glob("%s/*.zip" % DATA_PATH)
+        files = glob.glob("%s/ad*2012*2.zip" % DATA_PATH)
+        print("Files to parse: %s" % files)
         p.map(process_zip, files)
     except Exception, e:
-        print("-- EXCEPTION ON POOL: %s\n. TERMINATING..."% e)
+        tb = traceback.format_exc()
+        print("-- EXCEPTION ON POOL: %s\n. TERMINATING..."% tb)
         p.terminate()
     except:
-        print("-- UND. EXCEPTION ON POOL.\n. TERMINATING...")
+        tb = traceback.format_exc()
+        print("-- UND. EXCEPTION ON POOL.%s\n. TERMINATING..." % tb)
         p.terminate()
     finally:
         print("--  DONE")
