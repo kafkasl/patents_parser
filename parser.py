@@ -5,6 +5,7 @@ from bs4.element import NavigableString
 import datetime
 import exceptions
 from time import time
+import traceback
 import re
 import sys
 
@@ -175,7 +176,6 @@ class Patent(object):
         return self.valid
 
     def check_fields(self):
-        print("Checking Fields")
         self.remove_empty_assigs()
         lines_to_print = self.lines_to_print()
         self.init_printing_indices(lines_to_print)
@@ -191,7 +191,7 @@ class Patent(object):
                 print("exception [%s, %s]\n" % (field, str(e)))
                 # pass
         if (not i == len(Patent.CSV_FIELDS)) or self.errors:
-            print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
+            # print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
             valid = False
 
         self.valid = valid
@@ -201,16 +201,14 @@ class Patent(object):
             try:
                 if not assignor["name"]:
                     self.patent_assignors.remove(assignor)
-                    print("ASSIGNOR REMOVED")
             except Exception, e:
-                print("Trying to remove but [%s]" % e)
+                self.errors.append({"assignor ": "Trying to remove assignor but [%s]" % e)
         for (i, assignee) in enumerate(self.patent_assignees):
             try:
                 if not assignee["name"]:
                     self.patent_assignees.remove(assignee)
-                    print("ASSIGNEE REMOVED")
             except Exception, e:
-                print("Trying to remove but [%s]" % e)
+                self.errors.append({"assignee ": "Trying to remove assignee but [%s]" % e)
 
     def has_warnings(self):
         if self.warnings:
@@ -254,7 +252,6 @@ class Patent(object):
         # if lpao >= lpae and lpae >= lprops:
         #     aoi, aei, propi = self.get_indices(lprops, lpae, lpao)
 
-        print("Assignors = %s\nAssignees = %s\nProperties = %s" % (lpao,lpae,lprops))
 
         self.print_indices = self.get_indices(lpao, lpae, lprops, n)
 
@@ -291,7 +288,8 @@ class Patent(object):
                 pass
             except UnicodeEncodeError, e:
                 # print("Type(e) = %s " % type(e))
-                print("Exception %s" % e)
+                tb = traceback.format_exc()
+                self.errors.append("Exception" : tb)
                 sys.exit(-1)
                 # if not type(e) == exceptions.AttributeError:
         line += "\n"
@@ -368,7 +366,6 @@ class Patent(object):
         return ""
 
     def get_address_assignee(self, i):
-        print("GEtting adress EE %s %s\n%s\n\n" % (i, self.lines_to_print(), self.patent_assignees))
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
             return self.patent_assignees[index]["address-1"].encode('utf-8')
@@ -406,10 +403,8 @@ class Patent(object):
         return ""
 
     def get_address_2_assignee(self, i):
-        print("Getting address 28 / 2")
         if i < self.lines_to_print():
             _, index, _ = self.print_indices[i]
-            print("Got %s" % self.patent_assignees[index]["address-2"].encode('utf-8'))
             return self.patent_assignees[index]["address-2"].encode('utf-8')
         return ""
 
@@ -921,7 +916,6 @@ class Patent(object):
             elif not is_valid(self.get_date_assignor(0)):
                 self.errors.append({"date_assignor": "invalid date %s" % self.get_date_assignor()})
         except Exception, e:
-            print("esss %s" % e)
             self.warnings.append({"date_assignor": "not found"})
 
     def check_invention_title(self):
