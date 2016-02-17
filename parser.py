@@ -188,7 +188,8 @@ class Patent(object):
             except AttributeError:
                 pass
             except Exception, e:
-                print("exception [%s, %s]\n" % (field, str(e)))
+                tb = traceback.format_exc()
+                print("exception [%s, %s]\n" % (field, tb))
                 # pass
         if (not i == len(Patent.CSV_FIELDS)) or self.errors:
             # print("I, len, errors: %s, %s, %s" % (i, len(Patent.CSV_FIELDS), self.errors))
@@ -202,13 +203,13 @@ class Patent(object):
                 if not assignor["name"]:
                     self.patent_assignors.remove(assignor)
             except Exception, e:
-                self.errors.append({"assignor ": "Trying to remove assignor but [%s]" % e)
+                self.errors.append({"assignor ": "Trying to remove assignor but [%s]" % e})
         for (i, assignee) in enumerate(self.patent_assignees):
             try:
                 if not assignee["name"]:
                     self.patent_assignees.remove(assignee)
             except Exception, e:
-                self.errors.append({"assignee ": "Trying to remove assignee but [%s]" % e)
+                self.errors.append({"assignee ": "Trying to remove assignee but [%s]" % e})
 
     def has_warnings(self):
         if self.warnings:
@@ -289,7 +290,7 @@ class Patent(object):
             except UnicodeEncodeError, e:
                 # print("Type(e) = %s " % type(e))
                 tb = traceback.format_exc()
-                self.errors.append("Exception" : tb)
+                self.errors.append({"Exception" : tb})
                 sys.exit(-1)
                 # if not type(e) == exceptions.AttributeError:
         line += "\n"
@@ -842,7 +843,7 @@ class Patent(object):
                 if not is_string(city):
                     self.errors.append({"city": "not a string [%s]" % type(city)})
         except:
-            self.warnings({"city": "not found"})
+            self.warnings.append({"city": "not found"})
 
     def check_country_name_assignee(self):
         try:
