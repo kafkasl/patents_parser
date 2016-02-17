@@ -94,9 +94,10 @@ def process_zip(file):
         if first:
             p.print_csv_titles()
             first = False
-        if p.is_valid():
+
             p.print_csv()
             counter += 1
+        if p.is_valid():
             if p.has_warnings():
                 print("%s WARNINGS %s" % (i, p.get_warnings()), file=warnings)
         else:
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     except:
         print("-- UND. EXCEPTION ON POOL.\n. TERMINATING...")
         p.terminate()
-    finally: 
+    finally:
         print("--  DONE")
 
     p.terminate()
