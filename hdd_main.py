@@ -160,7 +160,7 @@ if __name__ == "__main__":
 
     p = multiprocessing.Pool(available_threads)
     try:
-        files = glob.glob("%s/ad*2012*2.zip" % DATA_PATH)
+        files = glob.glob("%s/*.zip" % DATA_PATH)
         print("Files to parse: %s" % files)
         p.map(process_zip, files)
     except Exception, e:
