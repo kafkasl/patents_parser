@@ -1,0 +1,11 @@
+#!/bin/bash
+#BSUB -J p_zip
+#BSUB -W 02:00
+#BSUB -cwd /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/exe 
+#BSUB -eo /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/exe/zip_err
+#BSUB -oo /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/exe/zip_out
+#BSUB -n 4
+
+zip patents_reassignments.zip patent_assignments_8_N//*
+
+

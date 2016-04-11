@@ -1,0 +1,9 @@
+#BSUB -J p_seq
+#BSUB -W 15:00
+#BSUB -cwd /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/exe 
+#BSUB -eo /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/results/err
+#BSUB -oo /gpfs/projects/bsc19/COMPSs_APPS/pyProCT/Data/results/out
+#BSUB -n 1
+
+
+python seq_main.py
